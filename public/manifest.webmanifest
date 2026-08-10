@@ -1,0 +1,17 @@
+{
+  "name": "Offload - URL Bookmark & Checklist",
+  "short_name": "Offload",
+  "description": "Auto-categorized bookmarking and checklist app for links you want to read later.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

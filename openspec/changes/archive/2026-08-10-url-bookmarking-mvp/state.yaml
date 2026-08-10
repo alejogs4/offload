@@ -1,0 +1,14 @@
+change: url-bookmarking-mvp
+phase: verify
+status: complete
+artifacts:
+  exploration: openspec/changes/url-bookmarking-mvp/exploration.md
+  proposal: openspec/changes/url-bookmarking-mvp/proposal.md
+  specs:
+    passcode-auth: openspec/changes/url-bookmarking-mvp/specs/passcode-auth/spec.md
+    bookmark-ingestion: openspec/changes/url-bookmarking-mvp/specs/bookmark-ingestion/spec.md
+    auto-categorization: openspec/changes/url-bookmarking-mvp/specs/auto-categorization/spec.md
+    checklist-management: openspec/changes/url-bookmarking-mvp/specs/checklist-management/spec.md
+  design: openspec/changes/url-bookmarking-mvp/design.md
+  tasks: openspec/changes/url-bookmarking-mvp/tasks.md
+  verify: openspec/changes/url-bookmarking-mvp/verify-report.md

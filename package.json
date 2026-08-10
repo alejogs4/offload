@@ -1,0 +1,43 @@
+{
+  "name": "offload",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "build": "react-router build",
+    "dev": "react-router dev",
+    "start": "react-router-serve ./build/server/index.js",
+    "typecheck": "react-router typegen && tsc",
+    "db:push": "drizzle-kit push",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^1.1.10",
+    "@ai-sdk/openai": "^1.1.9",
+    "@react-router/node": "^7.1.5",
+    "@react-router/serve": "^7.1.5",
+    "ai": "^4.1.20",
+    "better-sqlite3": "^11.8.0",
+    "cheerio": "^1.0.0",
+    "drizzle-orm": "^0.38.4",
+    "isbot": "^5",
+    "isomorphic-dompurify": "^2.20.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router": "^7.1.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.10",
+    "@react-router/dev": "^7.1.5",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.10",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "drizzle-kit": "^0.30.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.0.4"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+.atl/
+.env
+sqlite.db
+sqlite.db-journal
+sqlite.db-shm
+sqlite.db-wal
+build/
+.react-router/
