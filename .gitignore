@@ -7,3 +7,4 @@ sqlite.db-shm
 sqlite.db-wal
 build/
 .react-router/
+guides/
