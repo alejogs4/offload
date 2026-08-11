@@ -16,7 +16,8 @@ export const categorizer = new VercelAiCategorizerAdapter();
 export const createBookmarkHandler = new CreateBookmarkCommandHandler(
   bookmarkRepository,
   metadataScraper,
-  eventBus
+  eventBus,
+  categorizer
 );
 
 export const markBookmarkVisitedHandler = new MarkBookmarkVisitedCommandHandler(

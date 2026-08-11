@@ -3,6 +3,7 @@ import { BookmarkCreatedEvent } from "../domain/bookmark-events";
 import { BookmarkRepositoryPort } from "../domain/bookmark-repository-port";
 import { MetadataScraperPort } from "../domain/metadata-scraper-port";
 import { EventBusPort } from "~/shared/domain/domain-event";
+import { CategorizerPort } from "~/modules/categorization/domain/categorizer-port";
 
 export interface CreateBookmarkInput {
   userId: string;
@@ -13,11 +14,29 @@ export class CreateBookmarkCommandHandler {
   constructor(
     private repository: BookmarkRepositoryPort,
     private scraper: MetadataScraperPort,
-    private eventBus: EventBusPort
+    private eventBus: EventBusPort,
+    private categorizer?: CategorizerPort
   ) {}
 
   async execute(input: CreateBookmarkInput): Promise<Bookmark> {
     const scraped = await this.scraper.scrape(input.url);
+
+    let category = "Uncategorized";
+    let subcategory = "General";
+
+    if (this.categorizer) {
+      try {
+        const result = await this.categorizer.categorize(
+          scraped.title,
+          scraped.description,
+          input.url
+        );
+        category = result.category || category;
+        subcategory = result.subcategory || subcategory;
+      } catch (err) {
+        console.warn("[CreateBookmarkCommandHandler] Categorization inline warning:", err);
+      }
+    }
 
     const bookmark = new Bookmark({
       id: crypto.randomUUID(),
@@ -26,8 +45,8 @@ export class CreateBookmarkCommandHandler {
       title: scraped.title,
       description: scraped.description,
       ogImage: scraped.ogImage,
-      category: "Uncategorized",
-      subcategory: "General",
+      category,
+      subcategory,
       status: "pending",
       createdAt: new Date(),
       updatedAt: new Date(),

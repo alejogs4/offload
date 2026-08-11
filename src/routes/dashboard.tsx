@@ -165,6 +165,32 @@ export default function DashboardRoute() {
                               title="Check to mark as visited"
                             />
                           </fetcher.Form>
+
+                          <div className="item-media">
+                            {bookmark.ogImage ? (
+                              <img
+                                src={bookmark.ogImage}
+                                alt=""
+                                className="item-thumbnail"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className="item-favicon-wrapper"
+                              style={{ display: bookmark.ogImage ? "none" : "flex" }}
+                            >
+                              <img
+                                src={`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=64`}
+                                alt=""
+                                className="item-favicon"
+                              />
+                            </div>
+                          </div>
+
                           <div className="item-content">
                             <fetcher.Form method="post" style={{ display: "inline" }}>
                               <input type="hidden" name="intent" value="mark_visited" />
@@ -208,6 +234,30 @@ export default function DashboardRoute() {
                 {folderTree.visitedBookmarks.map((bookmark) => (
                   <div key={bookmark.id} className="checklist-item visited-item">
                     <input type="checkbox" className="checkbox-btn" checked readOnly aria-label="Visited" />
+                    <div className="item-media">
+                      {bookmark.ogImage ? (
+                        <img
+                          src={bookmark.ogImage}
+                          alt=""
+                          className="item-thumbnail"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="item-favicon-wrapper"
+                        style={{ display: bookmark.ogImage ? "none" : "flex" }}
+                      >
+                        <img
+                          src={`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=64`}
+                          alt=""
+                          className="item-favicon"
+                        />
+                      </div>
+                    </div>
                     <div className="item-content">
                       <a
                         href={bookmark.url}
