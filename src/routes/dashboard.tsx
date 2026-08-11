@@ -1,4 +1,4 @@
-import { redirect, useLoaderData, useFetcher, Form } from "react-router";
+import { redirect, useLoaderData, useFetcher } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { isAuthenticatedRequest, DEFAULT_USER_ID } from "~/modules/auth/application/auth-session";
 import { getFolderTreeQuery, createBookmarkHandler, markBookmarkVisitedHandler } from "~/shared/infrastructure/container";
@@ -53,9 +53,11 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function DashboardRoute() {
   const { folderTree } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
+  const addFetcher = useFetcher();
+  const [urlInput, setUrlInput] = useState("");
   const [activeTab, setActiveTab] = useState<"pending" | "visited">("pending");
 
-  const isSubmitting = fetcher.state === "submitting" || fetcher.state === "loading";
+  const isSaving = addFetcher.state === "submitting" || addFetcher.state === "loading";
 
   return (
     <div>
@@ -74,19 +76,39 @@ export default function DashboardRoute() {
       <main className="app-main">
         {/* Quick URL Input Bar */}
         <div className="url-input-container">
-          <Form method="post" className="url-form">
+          <addFetcher.Form
+            method="post"
+            className="url-form"
+            onSubmit={() => {
+              setUrlInput("");
+            }}
+          >
             <input type="hidden" name="intent" value="create" />
             <input
               type="url"
               name="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
               className="form-input url-input"
               placeholder="Paste any website URL to categorize & read later (https://...)"
               required
             />
-            <button type="submit" className="btn-primary btn-add" disabled={isSubmitting}>
-              {isSubmitting ? "Scraping & Saving..." : "+ Save URL"}
+            <button type="submit" className="btn-primary btn-add" disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  <span>Saving URL...</span>
+                </>
+              ) : (
+                "+ Save URL"
+              )}
             </button>
-          </Form>
+          </addFetcher.Form>
+          {addFetcher.data?.error && (
+            <div className="error-banner" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
+              {addFetcher.data.error}
+            </div>
+          )}
         </div>
 
         {/* View Tabs */}

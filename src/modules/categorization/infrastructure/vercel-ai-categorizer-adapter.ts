@@ -3,11 +3,7 @@ import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { CategorizerPort, CategorizationResult } from "../domain/categorizer-port";
-
-const categorizationSchema = z.object({
-  category: z.string().describe("Main top-level category e.g., Tech, Design, Finance, Science, General"),
-  subcategory: z.string().describe("Specific subcategory e.g., AI, Frontend, UI/UX, Investing"),
-});
+import { categorizationPromptConfig } from "../domain/categorization-prompt-config";
 
 export class VercelAiCategorizerAdapter implements CategorizerPort {
   async categorize(title: string, description: string, url: string): Promise<CategorizationResult> {
@@ -18,17 +14,23 @@ export class VercelAiCategorizerAdapter implements CategorizerPort {
       return this.heuristicFallback(title, description, url);
     }
 
+    const schema = z.object({
+      category: z.string().describe(categorizationPromptConfig.categoryDescription),
+      subcategory: z.string().describe(categorizationPromptConfig.subcategoryDescription),
+    });
+
     try {
       const { object } = await generateObject({
         model,
-        schema: categorizationSchema,
-        prompt: `Categorize the following bookmark link into a Category and Subcategory.\nTitle: ${title}\nDescription: ${description}\nURL: ${url}`,
-        temperature: 0.2,
+        schema,
+        system: categorizationPromptConfig.systemPrompt,
+        prompt: categorizationPromptConfig.formatUserPrompt(title, description, url),
+        temperature: categorizationPromptConfig.temperature,
       });
 
       return {
-        category: object.category || "Uncategorized",
-        subcategory: object.subcategory || "General",
+        category: object.category?.trim() || "Uncategorized",
+        subcategory: object.subcategory?.trim() || "General",
       };
     } catch (err) {
       console.error("[VercelAiCategorizer] AI categorization failed, falling back:", err);
