@@ -1,5 +1,16 @@
 import { DomainEvent } from "~/shared/domain/domain-event";
+import { BookmarkState } from "./bookmark-schema";
 
+/**
+ * Domain Event Sum Type (Discriminated Union)
+ * Used by aggregates and pure reducer functions to evolve domain state.
+ */
+export type BookmarkEvent =
+  | { type: "BookmarkCreated"; payload: BookmarkState }
+  | { type: "BookmarkCategorized"; payload: { id: string; category: string; subcategory: string; updatedAt: Date } }
+  | { type: "BookmarkVisited"; payload: { id: string; userId: string; visitedAt: Date } };
+
+// Event Bus payload representations
 export interface BookmarkCreatedPayload {
   bookmarkId: string;
   userId: string;

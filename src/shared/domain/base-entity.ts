@@ -1,21 +1,14 @@
-export abstract class BaseEntity<ID = string> {
-  protected readonly _id: ID;
+export abstract class BaseEntity<TState, TEvent> {
+  /**
+   * Protected state reducer that pattern matches on event sum types
+   * to produce the next immutable state representation.
+   */
+  protected abstract evolve(state: TState | null, event: TEvent): TState;
 
-  constructor(id: ID) {
-    this._id = id;
-  }
-
-  get id(): ID {
-    return this._id;
-  }
-
-  equals(other?: BaseEntity<ID>): boolean {
-    if (other === null || other === undefined) {
-      return false;
-    }
-    if (this === other) {
-      return true;
-    }
-    return this._id === other._id;
+  /**
+   * Applies an event to state via the protected evolve reducer.
+   */
+  public transition(state: TState | null, event: TEvent): TState {
+    return this.evolve(state, event);
   }
 }

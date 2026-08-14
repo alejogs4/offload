@@ -1,5 +1,5 @@
 import { DrizzleBookmarkRepository } from "~/modules/bookmark/infrastructure/drizzle-bookmark-repository";
-import { CheerioMetadataScraper } from "~/modules/bookmark/infrastructure/cheerio-metadata-scraper";
+import { MetadataScraperFactory } from "~/modules/bookmark/infrastructure/scraper/metadata-scraper-factory";
 import { CreateBookmarkCommandHandler } from "~/modules/bookmark/application/create-bookmark-command";
 import { MarkBookmarkVisitedCommandHandler } from "~/modules/bookmark/application/mark-bookmark-visited-command";
 import { VercelAiCategorizerAdapter } from "~/modules/categorization/infrastructure/vercel-ai-categorizer-adapter";
@@ -9,7 +9,7 @@ import { eventBus } from "./events/in-memory-event-bus";
 
 // Singleton instances for ports & adapters
 export const bookmarkRepository = new DrizzleBookmarkRepository();
-export const metadataScraper = new CheerioMetadataScraper();
+export const metadataScraper = MetadataScraperFactory.createDefault();
 export const categorizer = new VercelAiCategorizerAdapter();
 
 // Application Command & Query Handlers

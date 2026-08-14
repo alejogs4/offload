@@ -1,81 +1,136 @@
 import { BaseEntity } from "~/shared/domain/base-entity";
+import {
+  BookmarkState,
+  BookmarkStateSchema,
+  BookmarkStatus,
+  DefaultTaxonomy,
+} from "./bookmark-schema";
+import { BookmarkEvent } from "./bookmark-events";
 
-export type BookmarkStatus = "pending" | "visited";
-
-export interface BookmarkProps {
-  id: string;
+export interface CreateBookmarkProps {
+  id?: string;
   userId: string;
   url: string;
   title: string;
   description: string;
   ogImage?: string;
-  category: string;
-  subcategory: string;
-  status: BookmarkStatus;
-  createdAt: Date;
-  updatedAt: Date;
+  category?: string;
+  subcategory?: string;
 }
 
-export class Bookmark extends BaseEntity<string> {
-  private props: BookmarkProps;
+export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
+  /**
+   * Enforces creation invariants and generates the initial BookmarkCreated event + evolved state.
+   */
+  public create(props: CreateBookmarkProps): { event: BookmarkEvent; evolved: BookmarkState } {
+    const now = new Date();
+    const state = BookmarkStateSchema.parse({
+      id: props.id ?? crypto.randomUUID(),
+      userId: props.userId,
+      url: props.url,
+      title: props.title,
+      description: props.description,
+      ogImage: props.ogImage,
+      category: props.category ?? DefaultTaxonomy.CATEGORY,
+      subcategory: props.subcategory ?? DefaultTaxonomy.SUBCATEGORY,
+      status: BookmarkStatus.PENDING,
+      createdAt: now,
+      updatedAt: now,
+    });
 
-  constructor(props: BookmarkProps) {
-    super(props.id);
-    this.props = props;
+    const event: BookmarkEvent = {
+      type: "BookmarkCreated",
+      payload: state,
+    };
+
+    return { event, evolved: this.evolve(null, event) };
   }
 
-  get userId(): string {
-    return this.props.userId;
+  /**
+   * Enforces visit invariants: user authorization and unvisited status.
+   */
+  public markAsVisited(
+    state: BookmarkState,
+    userId: string
+  ): { event: BookmarkEvent; evolved: BookmarkState } {
+    if (state.userId !== userId) {
+      throw new Error("Unauthorized: Cannot modify bookmark belonging to another user");
+    }
+
+    if (state.status === BookmarkStatus.VISITED) {
+      throw new Error("InvalidInvariant: Bookmark is already marked as visited");
+    }
+
+    const event: BookmarkEvent = {
+      type: "BookmarkVisited",
+      payload: {
+        id: state.id,
+        userId,
+        visitedAt: new Date(),
+      },
+    };
+
+    return { event, evolved: this.evolve(state, event) };
   }
 
-  get url(): string {
-    return this.props.url;
+  /**
+   * Enforces categorization invariants.
+   */
+  public categorize(
+    state: BookmarkState,
+    category: string,
+    subcategory: string
+  ): { event: BookmarkEvent; evolved: BookmarkState } {
+    const trimmedCategory = category.trim();
+    const trimmedSubcategory = subcategory.trim();
+
+    if (!trimmedCategory) {
+      throw new Error("InvalidInvariant: Category cannot be empty");
+    }
+
+    const event: BookmarkEvent = {
+      type: "BookmarkCategorized",
+      payload: {
+        id: state.id,
+        category: trimmedCategory,
+        subcategory: trimmedSubcategory || DefaultTaxonomy.SUBCATEGORY,
+        updatedAt: new Date(),
+      },
+    };
+
+    return { event, evolved: this.evolve(state, event) };
   }
 
-  get title(): string {
-    return this.props.title;
-  }
+  /**
+   * Pure state reducer implementing sum-type pattern matching.
+   */
+  protected evolve(state: BookmarkState | null, event: BookmarkEvent): BookmarkState {
+    switch (event.type) {
+      case "BookmarkCreated":
+        return event.payload;
 
-  get description(): string {
-    return this.props.description;
-  }
+      case "BookmarkVisited": {
+        if (!state) {
+          throw new Error("Cannot evolve non-existent bookmark state");
+        }
+        return {
+          ...state,
+          status: BookmarkStatus.VISITED,
+          updatedAt: event.payload.visitedAt,
+        };
+      }
 
-  get ogImage(): string | undefined {
-    return this.props.ogImage;
-  }
-
-  get category(): string {
-    return this.props.category;
-  }
-
-  get subcategory(): string {
-    return this.props.subcategory;
-  }
-
-  get status(): BookmarkStatus {
-    return this.props.status;
-  }
-
-  get createdAt(): Date {
-    return this.props.createdAt;
-  }
-
-  get updatedAt(): Date {
-    return this.props.updatedAt;
-  }
-
-  public categorize(category: string, subcategory: string): void {
-    this.props.category = category;
-    this.props.subcategory = subcategory;
-    this.props.updatedAt = new Date();
-  }
-
-  public markAsVisited(): void {
-    this.props.status = "visited";
-    this.props.updatedAt = new Date();
-  }
-
-  public toJSON(): BookmarkProps {
-    return { ...this.props };
+      case "BookmarkCategorized": {
+        if (!state) {
+          throw new Error("Cannot evolve non-existent bookmark state");
+        }
+        return {
+          ...state,
+          category: event.payload.category,
+          subcategory: event.payload.subcategory,
+          updatedAt: event.payload.updatedAt,
+        };
+      }
+    }
   }
 }

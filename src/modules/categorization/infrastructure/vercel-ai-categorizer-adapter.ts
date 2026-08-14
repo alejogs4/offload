@@ -5,6 +5,8 @@ import { z } from "zod";
 import { CategorizerPort, CategorizationResult } from "../domain/categorizer-port";
 import { categorizationPromptConfig } from "../domain/categorization-prompt-config";
 
+import { DefaultTaxonomy } from "~/modules/bookmark/domain/bookmark-category";
+
 export class VercelAiCategorizerAdapter implements CategorizerPort {
   async categorize(title: string, description: string, url: string): Promise<CategorizationResult> {
     const model = this.resolveLanguageModel();
@@ -29,8 +31,8 @@ export class VercelAiCategorizerAdapter implements CategorizerPort {
       });
 
       return {
-        category: object.category?.trim() || "Uncategorized",
-        subcategory: object.subcategory?.trim() || "General",
+        category: object.category?.trim() || DefaultTaxonomy.CATEGORY,
+        subcategory: object.subcategory?.trim() || DefaultTaxonomy.SUBCATEGORY,
       };
     } catch (err) {
       console.error("[VercelAiCategorizer] AI categorization failed, falling back:", err);

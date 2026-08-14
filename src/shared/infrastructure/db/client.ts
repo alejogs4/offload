@@ -1,6 +1,8 @@
 import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
 import * as schema from "./schema";
+import { BookmarkStatus } from "~/modules/bookmark/domain/bookmark-status";
+import { DefaultTaxonomy } from "~/modules/bookmark/domain/bookmark-category";
 
 const tursoUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
 const tursoToken = process.env.TURSO_AUTH_TOKEN;
@@ -33,9 +35,9 @@ if (url.startsWith("file:")) {
         title TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
         og_image TEXT,
-        category TEXT NOT NULL DEFAULT 'Uncategorized',
-        subcategory TEXT NOT NULL DEFAULT 'General',
-        status TEXT NOT NULL DEFAULT 'pending',
+        category TEXT NOT NULL DEFAULT '${DefaultTaxonomy.CATEGORY}',
+        subcategory TEXT NOT NULL DEFAULT '${DefaultTaxonomy.SUBCATEGORY}',
+        status TEXT NOT NULL DEFAULT '${BookmarkStatus.PENDING}',
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );

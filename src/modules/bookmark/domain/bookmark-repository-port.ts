@@ -1,8 +1,8 @@
-import { Bookmark } from "./bookmark";
+import { BookmarkState } from "./bookmark-schema";
 
 export interface BookmarkRepositoryPort {
-  findById(id: string): Promise<Bookmark | null>;
-  save(bookmark: Bookmark): Promise<void>;
-  update(bookmark: Bookmark): Promise<void>;
-  findAllByUserId(userId: string): Promise<Bookmark[]>;
+  findById(id: string): Promise<BookmarkState | null>;
+  save(bookmark: BookmarkState): Promise<void>;
+  update(bookmark: BookmarkState): Promise<void>;
+  findAllByUserId(userId: string): Promise<BookmarkState[]>;
 }

@@ -1,16 +1,27 @@
+import { z } from "zod";
 import { Bookmark } from "../domain/bookmark";
+import {
+  BookmarkState,
+  UrlSchema,
+  UserIdSchema,
+  DefaultTaxonomy,
+} from "../domain/bookmark-schema";
 import { BookmarkCreatedEvent } from "../domain/bookmark-events";
 import { BookmarkRepositoryPort } from "../domain/bookmark-repository-port";
 import { MetadataScraperPort } from "../domain/metadata-scraper-port";
 import { EventBusPort } from "~/shared/domain/domain-event";
 import { CategorizerPort } from "~/modules/categorization/domain/categorizer-port";
 
-export interface CreateBookmarkInput {
-  userId: string;
-  url: string;
-}
+export const CreateBookmarkInputSchema = z.object({
+  userId: UserIdSchema,
+  url: UrlSchema,
+});
+
+export type CreateBookmarkInput = z.infer<typeof CreateBookmarkInputSchema>;
 
 export class CreateBookmarkCommandHandler {
+  private bookmarkAggregate = new Bookmark();
+
   constructor(
     private repository: BookmarkRepositoryPort,
     private scraper: MetadataScraperPort,
@@ -18,11 +29,12 @@ export class CreateBookmarkCommandHandler {
     private categorizer?: CategorizerPort
   ) {}
 
-  async execute(input: CreateBookmarkInput): Promise<Bookmark> {
+  async execute(rawInput: CreateBookmarkInput): Promise<BookmarkState> {
+    const input = CreateBookmarkInputSchema.parse(rawInput);
     const scraped = await this.scraper.scrape(input.url);
 
-    let category = "Uncategorized";
-    let subcategory = "General";
+    let category: string = DefaultTaxonomy.CATEGORY;
+    let subcategory: string = DefaultTaxonomy.SUBCATEGORY;
 
     if (this.categorizer) {
       try {
@@ -38,8 +50,7 @@ export class CreateBookmarkCommandHandler {
       }
     }
 
-    const bookmark = new Bookmark({
-      id: crypto.randomUUID(),
+    const { event, evolved } = this.bookmarkAggregate.create({
       userId: input.userId,
       url: input.url,
       title: scraped.title,
@@ -47,23 +58,20 @@ export class CreateBookmarkCommandHandler {
       ogImage: scraped.ogImage,
       category,
       subcategory,
-      status: "pending",
-      createdAt: new Date(),
-      updatedAt: new Date(),
     });
 
-    await this.repository.save(bookmark);
+    await this.repository.save(evolved);
 
     await this.eventBus.publish(
       new BookmarkCreatedEvent({
-        bookmarkId: bookmark.id,
-        userId: bookmark.userId,
-        url: bookmark.url,
-        title: bookmark.title,
-        description: bookmark.description,
+        bookmarkId: evolved.id,
+        userId: evolved.userId,
+        url: evolved.url,
+        title: evolved.title,
+        description: evolved.description,
       })
     );
 
-    return bookmark;
+    return evolved;
   }
 }

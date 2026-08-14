@@ -1,8 +1,18 @@
 import { redirect, useLoaderData, useFetcher } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { useState } from "react";
+import { z } from "zod";
 import { isAuthenticatedRequest, DEFAULT_USER_ID } from "~/modules/auth/application/auth-session";
 import { getFolderTreeQuery, createBookmarkHandler, markBookmarkVisitedHandler } from "~/shared/infrastructure/container";
-import { useState } from "react";
+import { BookmarkStatus } from "~/modules/bookmark/domain/bookmark-status";
+
+const CreateActionSchema = z.object({
+  url: z.string().url({ message: "A valid URL is required" }),
+});
+
+const MarkVisitedActionSchema = z.object({
+  bookmarkId: z.string().uuid({ message: "A valid Bookmark ID is required" }),
+});
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const cookieHeader = request.headers.get("Cookie");
@@ -24,11 +34,16 @@ export async function action({ request }: ActionFunctionArgs) {
   const intent = formData.get("intent")?.toString();
 
   if (intent === "create") {
-    const url = formData.get("url")?.toString().trim();
-    if (!url) return { error: "URL is required" };
+    const parsed = CreateActionSchema.safeParse({
+      url: formData.get("url")?.toString().trim(),
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message || "Invalid URL format" };
+    }
 
     try {
-      await createBookmarkHandler.execute({ userId: DEFAULT_USER_ID, url });
+      await createBookmarkHandler.execute({ userId: DEFAULT_USER_ID, url: parsed.data.url });
       return { success: true };
     } catch (err: any) {
       return { error: err.message || "Failed to save URL" };
@@ -36,11 +51,19 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   if (intent === "mark_visited") {
-    const bookmarkId = formData.get("bookmarkId")?.toString();
-    if (!bookmarkId) return { error: "Bookmark ID is required" };
+    const parsed = MarkVisitedActionSchema.safeParse({
+      bookmarkId: formData.get("bookmarkId")?.toString(),
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message || "Invalid Bookmark ID" };
+    }
 
     try {
-      await markBookmarkVisitedHandler.execute({ userId: DEFAULT_USER_ID, bookmarkId });
+      await markBookmarkVisitedHandler.execute({
+        userId: DEFAULT_USER_ID,
+        bookmarkId: parsed.data.bookmarkId,
+      });
       return { success: true };
     } catch (err: any) {
       return { error: err.message || "Failed to mark as visited" };
@@ -55,7 +78,7 @@ export default function DashboardRoute() {
   const fetcher = useFetcher();
   const addFetcher = useFetcher();
   const [urlInput, setUrlInput] = useState("");
-  const [activeTab, setActiveTab] = useState<"pending" | "visited">("pending");
+  const [activeTab, setActiveTab] = useState<BookmarkStatus>(BookmarkStatus.PENDING);
 
   const isSaving = addFetcher.state === "submitting" || addFetcher.state === "loading";
 
@@ -114,21 +137,21 @@ export default function DashboardRoute() {
         {/* View Tabs */}
         <div className="tabs-container">
           <button
-            className={`tab-btn ${activeTab === "pending" ? "active" : ""}`}
-            onClick={() => setActiveTab("pending")}
+            className={`tab-btn ${activeTab === BookmarkStatus.PENDING ? "active" : ""}`}
+            onClick={() => setActiveTab(BookmarkStatus.PENDING)}
           >
             📋 Pending Checklist ({folderTree.pendingFolders.reduce((acc, f) => acc + f.subcategories.reduce((sAcc, s) => sAcc + s.bookmarks.length, 0), 0)})
           </button>
           <button
-            className={`tab-btn ${activeTab === "visited" ? "active" : ""}`}
-            onClick={() => setActiveTab("visited")}
+            className={`tab-btn ${activeTab === BookmarkStatus.VISITED ? "active" : ""}`}
+            onClick={() => setActiveTab(BookmarkStatus.VISITED)}
           >
             ✅ Visited History ({folderTree.visitedBookmarks.length})
           </button>
         </div>
 
         {/* Pending Checklist View */}
-        {activeTab === "pending" && (
+        {activeTab === BookmarkStatus.PENDING && (
           <div>
             {folderTree.pendingFolders.length === 0 ? (
               <div className="empty-state">

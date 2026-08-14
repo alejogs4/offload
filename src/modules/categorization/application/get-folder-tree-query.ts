@@ -1,4 +1,9 @@
 import { BookmarkRepositoryPort } from "~/modules/bookmark/domain/bookmark-repository-port";
+import {
+  BookmarkState,
+  BookmarkStatus,
+  DefaultTaxonomy,
+} from "~/modules/bookmark/domain/bookmark-schema";
 
 export interface BookmarkItemDTO {
   id: string;
@@ -8,7 +13,7 @@ export interface BookmarkItemDTO {
   ogImage?: string;
   category: string;
   subcategory: string;
-  status: "pending" | "visited";
+  status: BookmarkStatus;
   createdAt: string;
 }
 
@@ -33,9 +38,9 @@ export class GetFolderTreeQueryHandler {
   async execute(userId: string): Promise<FolderTreeResultDTO> {
     const allBookmarks = await this.repository.findAllByUserId(userId);
 
-    const pending = allBookmarks.filter((b) => b.status === "pending");
+    const pending = allBookmarks.filter((b) => b.status === BookmarkStatus.PENDING);
     const visited = allBookmarks
-      .filter((b) => b.status === "visited")
+      .filter((b) => b.status === BookmarkStatus.VISITED)
       .map((b) => this.toDTO(b));
 
     // Group pending bookmarks by Category > Subcategory
@@ -43,8 +48,8 @@ export class GetFolderTreeQueryHandler {
 
     for (const item of pending) {
       const dto = this.toDTO(item);
-      const cat = dto.category || "Uncategorized";
-      const sub = dto.subcategory || "General";
+      const cat = dto.category || DefaultTaxonomy.CATEGORY;
+      const sub = dto.subcategory || DefaultTaxonomy.SUBCATEGORY;
 
       if (!categoryMap.has(cat)) {
         categoryMap.set(cat, new Map());
@@ -71,7 +76,7 @@ export class GetFolderTreeQueryHandler {
     };
   }
 
-  private toDTO(b: any): BookmarkItemDTO {
+  private toDTO(b: BookmarkState): BookmarkItemDTO {
     return {
       id: b.id,
       url: b.url,

@@ -1,25 +1,29 @@
 import { describe, it, expect, vi } from "vitest";
 import { CategorizeBookmarkHandler } from "../categorize-bookmark-handler";
 import { BookmarkCreatedEvent } from "~/modules/bookmark/domain/bookmark-events";
-import { Bookmark } from "~/modules/bookmark/domain/bookmark";
+import {
+  BookmarkState,
+  BookmarkStatus,
+  DefaultTaxonomy,
+} from "~/modules/bookmark/domain/bookmark-schema";
 
 describe("CategorizeBookmarkHandler", () => {
   it("should categorize existing bookmark and emit BookmarkCategorizedEvent", async () => {
-    const existingBookmark = new Bookmark({
-      id: "b-100",
+    const existingState: BookmarkState = {
+      id: "123e4567-e89b-12d3-a456-426614174000",
       userId: "u-1",
       url: "https://react.dev",
       title: "React Documentation",
       description: "Learn React",
-      category: "Uncategorized",
-      subcategory: "General",
-      status: "pending",
+      category: DefaultTaxonomy.CATEGORY,
+      subcategory: DefaultTaxonomy.SUBCATEGORY,
+      status: BookmarkStatus.PENDING,
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
+    };
 
     const mockRepo = {
-      findById: vi.fn().mockResolvedValue(existingBookmark),
+      findById: vi.fn().mockResolvedValue(existingState),
       save: vi.fn(),
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
@@ -39,7 +43,7 @@ describe("CategorizeBookmarkHandler", () => {
 
     const handler = new CategorizeBookmarkHandler(mockRepo, mockCategorizer, mockEventBus);
     const event = new BookmarkCreatedEvent({
-      bookmarkId: "b-100",
+      bookmarkId: "123e4567-e89b-12d3-a456-426614174000",
       userId: "u-1",
       url: "https://react.dev",
       title: "React Documentation",
@@ -48,9 +52,13 @@ describe("CategorizeBookmarkHandler", () => {
 
     await handler.handle(event);
 
-    expect(existingBookmark.category).toBe("Tech");
-    expect(existingBookmark.subcategory).toBe("Frontend");
-    expect(mockRepo.update).toHaveBeenCalledOnce();
+    expect(mockRepo.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "123e4567-e89b-12d3-a456-426614174000",
+        category: "Tech",
+        subcategory: "Frontend",
+      })
+    );
     expect(mockEventBus.publish).toHaveBeenCalledOnce();
   });
 });

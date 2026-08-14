@@ -1,0 +1,12 @@
+change: domain-and-scraper-refinements
+phase: archive
+status: complete
+artifacts:
+  proposal: openspec/changes/archive/2026-08-14-domain-and-scraper-refinements/proposal.md
+  specs:
+    domain-zod-schemas: openspec/changes/archive/2026-08-14-domain-and-scraper-refinements/specs/domain-zod-schemas/spec.md
+    functional-aggregate-decider: openspec/changes/archive/2026-08-14-domain-and-scraper-refinements/specs/functional-aggregate-decider/spec.md
+    scraper-strategy-pipeline: openspec/changes/archive/2026-08-14-domain-and-scraper-refinements/specs/scraper-strategy-pipeline/spec.md
+  design: openspec/changes/archive/2026-08-14-domain-and-scraper-refinements/design.md
+  tasks: openspec/changes/archive/2026-08-14-domain-and-scraper-refinements/tasks.md
+  verify: openspec/changes/archive/2026-08-14-domain-and-scraper-refinements/verify-report.md
