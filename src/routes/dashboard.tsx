@@ -5,6 +5,20 @@ import { z } from "zod";
 import { isAuthenticatedRequest, DEFAULT_USER_ID } from "~/modules/auth/application/auth-session";
 import { getFolderTreeQuery, createBookmarkHandler, markBookmarkVisitedHandler } from "~/shared/infrastructure/container";
 import { BookmarkStatus } from "~/modules/bookmark/domain/bookmark-status";
+import {
+  BookmarkIcon,
+  FolderIcon,
+  SubFolderIcon,
+  PlusIcon,
+  ExternalLinkIcon,
+  CheckIcon,
+  CheckCircleIcon,
+  GlobeIcon,
+  InboxIcon,
+  ListCheckIcon,
+  LinkIcon,
+  ChevronDownIcon,
+} from "~/shared/ui/icons";
 
 const CreateActionSchema = z.object({
   url: z.string().url({ message: "A valid URL is required" }),
@@ -79,26 +93,51 @@ export default function DashboardRoute() {
   const addFetcher = useFetcher();
   const [urlInput, setUrlInput] = useState("");
   const [activeTab, setActiveTab] = useState<BookmarkStatus>(BookmarkStatus.PENDING);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   const isSaving = addFetcher.state === "submitting" || addFetcher.state === "loading";
 
+  const totalPending = folderTree.pendingFolders.reduce(
+    (acc, f) => acc + f.subcategories.reduce((sAcc, s) => sAcc + s.bookmarks.length, 0),
+    0
+  );
+  const totalVisited = folderTree.visitedBookmarks.length;
+
+  const toggleCategory = (categoryName: string) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [categoryName]: !prev[categoryName],
+    }));
+  };
+
   return (
     <div>
+      {/* Header */}
       <header className="app-header">
         <div className="header-content">
-          <a href="/" className="brand-logo">
-            <span>🔖 Offload</span>
-            <span className="brand-badge">PWA</span>
-          </a>
-          <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-            Single-User Workspace
-          </span>
+          <div className="brand-container">
+            <a href="/" className="brand-title">
+              <div className="brand-icon-wrapper">
+                <BookmarkIcon size={18} />
+              </div>
+              <span>Offload</span>
+              <span className="brand-tag">PWA</span>
+            </a>
+          </div>
+
+          <div className="header-meta">
+            <span className="header-meta-badge">
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success-color)", display: "inline-block" }} />
+              Workspace Active
+            </span>
+          </div>
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="app-main">
         {/* Quick URL Input Bar */}
-        <div className="url-input-container">
+        <div className="url-input-card">
           <addFetcher.Form
             method="post"
             className="url-form"
@@ -107,195 +146,300 @@ export default function DashboardRoute() {
             }}
           >
             <input type="hidden" name="intent" value="create" />
-            <input
-              type="url"
-              name="url"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              className="form-input url-input"
-              placeholder="Paste any website URL to categorize & read later (https://...)"
-              required
-            />
-            <button type="submit" className="btn-primary btn-add" disabled={isSaving}>
+            <div className="url-input-wrapper">
+              <span className="url-input-icon">
+                <LinkIcon size={18} />
+              </span>
+              <input
+                type="url"
+                name="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                className="form-input"
+                placeholder="Paste any article, doc, or website URL (https://...)"
+                required
+                aria-label="Bookmark URL"
+              />
+            </div>
+            <button type="submit" className="btn-submit" disabled={isSaving}>
               {isSaving ? (
                 <>
-                  <span className="spinner" aria-hidden="true" />
-                  <span>Saving URL...</span>
+                  <span className="loading-spinner" aria-hidden="true" />
+                  <span>Processing...</span>
                 </>
               ) : (
-                "+ Save URL"
+                <>
+                  <PlusIcon size={16} />
+                  <span>Save URL</span>
+                </>
               )}
             </button>
           </addFetcher.Form>
+
           {addFetcher.data?.error && (
-            <div className="error-banner" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
-              {addFetcher.data.error}
+            <div className="error-toast" role="alert">
+              <span>⚠️</span>
+              <span>{addFetcher.data.error}</span>
             </div>
           )}
         </div>
 
-        {/* View Tabs */}
-        <div className="tabs-container">
-          <button
-            className={`tab-btn ${activeTab === BookmarkStatus.PENDING ? "active" : ""}`}
-            onClick={() => setActiveTab(BookmarkStatus.PENDING)}
-          >
-            📋 Pending Checklist ({folderTree.pendingFolders.reduce((acc, f) => acc + f.subcategories.reduce((sAcc, s) => sAcc + s.bookmarks.length, 0), 0)})
-          </button>
-          <button
-            className={`tab-btn ${activeTab === BookmarkStatus.VISITED ? "active" : ""}`}
-            onClick={() => setActiveTab(BookmarkStatus.VISITED)}
-          >
-            ✅ Visited History ({folderTree.visitedBookmarks.length})
-          </button>
+        {/* View Tabs Header */}
+        <div className="tabs-header">
+          <div className="segmented-tabs" role="tablist" aria-label="Bookmark views">
+            <button
+              role="tab"
+              aria-selected={activeTab === BookmarkStatus.PENDING}
+              className={`tab-pill ${activeTab === BookmarkStatus.PENDING ? "active" : ""}`}
+              onClick={() => setActiveTab(BookmarkStatus.PENDING)}
+            >
+              <ListCheckIcon size={16} />
+              <span>Pending Queue</span>
+              <span className="tab-counter">{totalPending}</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === BookmarkStatus.VISITED}
+              className={`tab-pill ${activeTab === BookmarkStatus.VISITED ? "active" : ""}`}
+              onClick={() => setActiveTab(BookmarkStatus.VISITED)}
+            >
+              <CheckCircleIcon size={16} />
+              <span>Visited Archive</span>
+              <span className="tab-counter">{totalVisited}</span>
+            </button>
+          </div>
         </div>
 
         {/* Pending Checklist View */}
         {activeTab === BookmarkStatus.PENDING && (
           <div>
             {folderTree.pendingFolders.length === 0 ? (
-              <div className="empty-state">
-                <h3>No pending links!</h3>
-                <p>Paste a URL above to auto-categorize and add items to your checklist.</p>
+              <div className="empty-placeholder">
+                <div className="empty-icon-wrap">
+                  <InboxIcon size={28} />
+                </div>
+                <h2 className="empty-title">Queue is clear!</h2>
+                <p className="empty-subtitle">Paste any article, repo, or link above to automatically analyze, summarize, and categorize it.</p>
               </div>
             ) : (
-              folderTree.pendingFolders.map((category) => (
-                <div key={category.name} className="category-card">
-                  <div className="category-header">
-                    <span>📁 {category.name}</span>
-                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                      {category.subcategories.reduce((acc, sub) => acc + sub.bookmarks.length, 0)} items
-                    </span>
-                  </div>
-
-                  {category.subcategories.map((sub) => (
-                    <div key={sub.name} className="subcategory-section">
-                      <div className="subcategory-title">📂 {sub.name}</div>
-                      {sub.bookmarks.map((bookmark) => (
-                        <div key={bookmark.id} className="checklist-item">
-                          <fetcher.Form method="post" style={{ display: "flex", alignItems: "center" }}>
-                            <input type="hidden" name="intent" value="mark_visited" />
-                            <input type="hidden" name="bookmarkId" value={bookmark.id} />
-                            <input
-                              type="checkbox"
-                              className="checkbox-btn"
-                              aria-label="Mark bookmark as visited"
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  e.target.form?.requestSubmit();
-                                }
-                              }}
-                              title="Check to mark as visited"
-                            />
-                          </fetcher.Form>
-
-                          <div className="item-media">
-                            {bookmark.ogImage ? (
-                              <img
-                                src={bookmark.ogImage}
-                                alt=""
-                                className="item-thumbnail"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = "none";
-                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                  if (fallback) fallback.style.display = "flex";
-                                }}
-                              />
-                            ) : null}
-                            <div
-                              className="item-favicon-wrapper"
-                              style={{ display: bookmark.ogImage ? "none" : "flex" }}
-                            >
-                              <img
-                                src={`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=64`}
-                                alt=""
-                                className="item-favicon"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="item-content">
-                            <fetcher.Form method="post" style={{ display: "inline" }}>
-                              <input type="hidden" name="intent" value="mark_visited" />
-                              <input type="hidden" name="bookmarkId" value={bookmark.id} />
-                              <a
-                                href={bookmark.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="item-title"
-                                onClick={(e) => {
-                                  const form = e.currentTarget.previousElementSibling as HTMLFormElement;
-                                  if (form) form.requestSubmit();
-                                }}
-                              >
-                                {bookmark.title}
-                              </a>
-                            </fetcher.Form>
-                            <p className="item-description">{bookmark.description}</p>
-                            <div className="item-domain">🔗 {new URL(bookmark.url).hostname}</div>
-                          </div>
+              folderTree.pendingFolders.map((category) => {
+                const isExpanded = Boolean(expandedCategories[category.name]);
+                return (
+                  <div key={category.name} className="category-group">
+                    <div className="category-card">
+                      {/* Collapsible Category Header */}
+                      <button
+                        type="button"
+                        className="category-card-header"
+                        onClick={() => toggleCategory(category.name)}
+                        aria-expanded={isExpanded}
+                      >
+                        <div className="category-title-wrap">
+                          <FolderIcon className="category-icon" size={18} />
+                          <span>{category.name}</span>
                         </div>
-                      ))}
+                        <div className="category-header-right">
+                          <span className="category-badge">
+                            {category.subcategories.reduce((acc, sub) => acc + sub.bookmarks.length, 0)} items
+                          </span>
+                          <ChevronDownIcon
+                            size={16}
+                            className={`chevron-toggle-icon ${isExpanded ? "" : "collapsed"}`}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Subcategories body */}
+                      {isExpanded && (
+                        <div className="category-card-body">
+                          {category.subcategories.map((sub) => (
+                            <div key={sub.name} className="subcategory-block">
+                              <div className="subcategory-label">
+                                <SubFolderIcon size={14} />
+                                <span>{sub.name}</span>
+                              </div>
+
+                              <div className="checklist-list">
+                                {sub.bookmarks.map((bookmark) => (
+                                  <div key={bookmark.id} className="checklist-item">
+                                    {/* Complete Action Button */}
+                                    <fetcher.Form method="post" className="checkbox-action-wrapper">
+                                      <input type="hidden" name="intent" value="mark_visited" />
+                                      <input type="hidden" name="bookmarkId" value={bookmark.id} />
+                                      <button
+                                        type="submit"
+                                        className="custom-checkbox-btn"
+                                        title="Mark as visited & move to archive"
+                                        aria-label={`Mark ${bookmark.title} as visited`}
+                                      >
+                                        <CheckIcon size={14} />
+                                      </button>
+                                    </fetcher.Form>
+
+                                    {/* Thumbnail / Favicon */}
+                                    <div className="item-media-container">
+                                      {bookmark.ogImage ? (
+                                        <img
+                                          src={bookmark.ogImage}
+                                          alt=""
+                                          className="item-thumbnail"
+                                          loading="lazy"
+                                          onError={(e) => {
+                                            e.currentTarget.style.display = "none";
+                                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                            if (fallback) fallback.style.display = "flex";
+                                          }}
+                                        />
+                                      ) : null}
+                                      <div
+                                        className="item-favicon-box"
+                                        style={{ display: bookmark.ogImage ? "none" : "flex" }}
+                                      >
+                                        <img
+                                          src={`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=64`}
+                                          alt=""
+                                          className="item-favicon-img"
+                                          loading="lazy"
+                                          onError={(e) => {
+                                            e.currentTarget.style.opacity = "0.3";
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Item Details */}
+                                    <div className="item-body">
+                                      <fetcher.Form method="post" style={{ display: "inline" }}>
+                                        <input type="hidden" name="intent" value="mark_visited" />
+                                        <input type="hidden" name="bookmarkId" value={bookmark.id} />
+                                        <a
+                                          href={bookmark.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="item-title-link"
+                                          onClick={(e) => {
+                                            const form = e.currentTarget.previousElementSibling as HTMLFormElement;
+                                            if (form) form.requestSubmit();
+                                          }}
+                                        >
+                                          <span>{bookmark.title}</span>
+                                          <ExternalLinkIcon size={13} className="item-external-icon" />
+                                        </a>
+                                      </fetcher.Form>
+
+                                      {bookmark.description && (
+                                        <p className="item-description-text">{bookmark.description}</p>
+                                      )}
+
+                                      <div className="item-meta-bar">
+                                        <span className="domain-pill">
+                                          <GlobeIcon size={12} />
+                                          <span>{new URL(bookmark.url).hostname}</span>
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              ))
+                  </div>
+                );
+              })
             )}
           </div>
         )}
 
+
         {/* Visited History View */}
-        {activeTab === "visited" && (
+        {activeTab === BookmarkStatus.VISITED && (
           <div>
             {folderTree.visitedBookmarks.length === 0 ? (
-              <div className="empty-state">
-                <h3>No visited bookmarks yet.</h3>
-                <p>Checked or clicked links will appear here.</p>
+              <div className="empty-placeholder">
+                <div className="empty-icon-wrap">
+                  <CheckCircleIcon size={28} />
+                </div>
+                <h2 className="empty-title">Archive is empty</h2>
+                <p className="empty-subtitle">Items marked as visited will be preserved here for your reference history.</p>
               </div>
             ) : (
-              <div className="category-card" style={{ padding: "1rem" }}>
-                {folderTree.visitedBookmarks.map((bookmark) => (
-                  <div key={bookmark.id} className="checklist-item visited-item">
-                    <input type="checkbox" className="checkbox-btn" checked readOnly aria-label="Visited" />
-                    <div className="item-media">
-                      {bookmark.ogImage ? (
-                        <img
-                          src={bookmark.ogImage}
-                          alt=""
-                          className="item-thumbnail"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className="item-favicon-wrapper"
-                        style={{ display: bookmark.ogImage ? "none" : "flex" }}
-                      >
-                        <img
-                          src={`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=64`}
-                          alt=""
-                          className="item-favicon"
-                        />
-                      </div>
-                    </div>
-                    <div className="item-content">
-                      <a
-                        href={bookmark.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="item-title"
-                      >
-                        {bookmark.title}
-                      </a>
-                      <div className="item-domain">
-                        📁 {bookmark.category} &gt; {bookmark.subcategory} • {new URL(bookmark.url).hostname}
-                      </div>
-                    </div>
+              <div className="category-card">
+                <div className="category-card-header">
+                  <div className="category-title-wrap">
+                    <CheckCircleIcon className="category-icon" size={18} />
+                    <span>Completed Readings</span>
                   </div>
-                ))}
+                  <span className="category-badge">{folderTree.visitedBookmarks.length} archived</span>
+                </div>
+
+                <div className="subcategory-block">
+                  <div className="checklist-list">
+                    {folderTree.visitedBookmarks.map((bookmark) => (
+                      <div key={bookmark.id} className="checklist-item visited-item">
+                        <div className="checkbox-action-wrapper">
+                          <div className="custom-checkbox-btn checked" aria-hidden="true">
+                            <CheckIcon size={14} />
+                          </div>
+                        </div>
+
+                        <div className="item-media-container">
+                          {bookmark.ogImage ? (
+                            <img
+                              src={bookmark.ogImage}
+                              alt=""
+                              className="item-thumbnail"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="item-favicon-box"
+                            style={{ display: bookmark.ogImage ? "none" : "flex" }}
+                          >
+                            <img
+                              src={`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=64`}
+                              alt=""
+                              className="item-favicon-img"
+                              loading="lazy"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="item-body">
+                          <a
+                            href={bookmark.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="item-title-link"
+                          >
+                            <span>{bookmark.title}</span>
+                            <ExternalLinkIcon size={13} className="item-external-icon" />
+                          </a>
+
+                          <div className="item-meta-bar">
+                            <span className="category-path-pill">
+                              <FolderIcon size={12} />
+                              <span>{bookmark.category}</span>
+                              <span>/</span>
+                              <span>{bookmark.subcategory}</span>
+                            </span>
+                            <span className="domain-pill">
+                              <GlobeIcon size={12} />
+                              <span>{new URL(bookmark.url).hostname}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -304,3 +448,4 @@ export default function DashboardRoute() {
     </div>
   );
 }
+

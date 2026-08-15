@@ -1,6 +1,7 @@
 import { redirect, useActionData, Form } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { isPasscodeValid, createAuthCookieHeader, isAuthenticatedRequest } from "~/modules/auth/application/auth-session";
+import { LockIcon } from "~/shared/ui/icons";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const cookieHeader = request.headers.get("Cookie");
@@ -29,31 +30,43 @@ export default function LoginRoute() {
   const actionData = useActionData<typeof action>();
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h1 className="auth-title">Offload MVP</h1>
-        <p className="auth-subtitle">Enter your admin passcode to access your bookmark workspace.</p>
+    <div className="auth-wrapper">
+      <div className="auth-modal">
+        <div className="auth-icon-header">
+          <div className="auth-lock-circle">
+            <LockIcon size={22} />
+          </div>
+        </div>
+
+        <h1 className="auth-heading">Offload Workspace</h1>
+        <p className="auth-desc">Enter your passcode to access your categorized bookmark stream.</p>
 
         {actionData?.error && (
-          <div className="error-banner">{actionData.error}</div>
+          <div className="error-toast" role="alert" style={{ marginBottom: "1.25rem", marginTop: 0 }}>
+            <span>⚠️</span>
+            <span>{actionData.error}</span>
+          </div>
         )}
 
         <Form method="post">
-          <div className="form-group">
-            <label className="form-label" htmlFor="passcode">
-              Passcode
+          <div className="field-group">
+            <label className="field-label" htmlFor="passcode">
+              Access Passcode
             </label>
-            <input
-              id="passcode"
-              type="password"
-              name="passcode"
-              className="form-input"
-              placeholder="Enter passcode..."
-              autoFocus
-              required
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                id="passcode"
+                type="password"
+                name="passcode"
+                className="form-input"
+                style={{ paddingLeft: "1rem" }}
+                placeholder="••••••••••••"
+                autoFocus
+                required
+              />
+            </div>
           </div>
-          <button type="submit" className="btn-primary">
+          <button type="submit" className="btn-submit" style={{ width: "100%", marginTop: "0.5rem" }}>
             Unlock Workspace
           </button>
         </Form>
@@ -61,3 +74,4 @@ export default function LoginRoute() {
     </div>
   );
 }
+
