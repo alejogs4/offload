@@ -12,7 +12,12 @@ export const bookmarksTable = sqliteTable("bookmarks", {
   category: text("category").notNull().default(DefaultTaxonomy.CATEGORY),
   subcategory: text("subcategory").notNull().default(DefaultTaxonomy.SUBCATEGORY),
   status: text("status", {
-    enum: [BookmarkStatus.PENDING, BookmarkStatus.VISITED],
+    enum: [
+      BookmarkStatus.PROCESSING,
+      BookmarkStatus.PENDING,
+      BookmarkStatus.VISITED,
+      BookmarkStatus.FAILED,
+    ],
   })
     .notNull()
     .default(BookmarkStatus.PENDING),

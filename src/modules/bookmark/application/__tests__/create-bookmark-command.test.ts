@@ -2,10 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 import { CreateBookmarkCommandHandler } from "../create-bookmark-command";
 import { MarkBookmarkVisitedCommandHandler } from "../mark-bookmark-visited-command";
 import { BookmarkState, BookmarkStatus } from "../../domain/bookmark-schema";
+import { BookmarkEnrichmentService } from "../../domain/services/bookmark-enrichment-service";
 
 describe("Bookmark Application Command Handlers", () => {
   describe("CreateBookmarkCommandHandler", () => {
-    it("should scrape metadata, save bookmark, and publish BookmarkCreatedEvent", async () => {
+    it("should immediately save bookmark with PROCESSING status, emit event, and dispatch background enrichment", async () => {
       const mockRepo = {
         findById: vi.fn(),
         save: vi.fn().mockResolvedValue(undefined),
@@ -13,35 +14,33 @@ describe("Bookmark Application Command Handlers", () => {
         findAllByUserId: vi.fn(),
       };
 
-      const mockScraper = {
-        scrape: vi.fn().mockResolvedValue({
-          title: "Test Scraped Title",
-          description: "Test Scraped Description",
-        }),
-      };
+      const mockEnrichmentService = {
+        enrich: vi.fn().mockResolvedValue(undefined),
+      } as unknown as BookmarkEnrichmentService;
 
       const mockEventBus = {
         publish: vi.fn().mockResolvedValue(undefined),
         subscribe: vi.fn(),
       };
 
-      const handler = new CreateBookmarkCommandHandler(mockRepo, mockScraper, mockEventBus);
+      const handler = new CreateBookmarkCommandHandler(mockRepo, mockEnrichmentService, mockEventBus);
       const result = await handler.execute({
         userId: "user-123",
-        url: "https://testing.com",
+        url: "https://testing.com/articles/async-pipeline",
       });
 
       expect(result.id).toBeDefined();
-      expect(result.status).toBe(BookmarkStatus.PENDING);
-      expect(result.title).toBe("Test Scraped Title");
+      expect(result.status).toBe(BookmarkStatus.PROCESSING);
+      expect(result.title).toBe("testing.com");
       expect(mockRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: "user-123",
-          url: "https://testing.com",
-          title: "Test Scraped Title",
-          status: BookmarkStatus.PENDING,
+          url: "https://testing.com/articles/async-pipeline",
+          title: "testing.com",
+          status: BookmarkStatus.PROCESSING,
         })
       );
+      expect(mockEnrichmentService.enrich).toHaveBeenCalledWith(result);
       expect(mockEventBus.publish).toHaveBeenCalledOnce();
     });
   });

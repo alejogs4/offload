@@ -30,6 +30,7 @@ export interface CategoryGroupDTO {
 export interface FolderTreeResultDTO {
   pendingFolders: CategoryGroupDTO[];
   visitedBookmarks: BookmarkItemDTO[];
+  processingBookmarks: BookmarkItemDTO[];
 }
 
 export class GetFolderTreeQueryHandler {
@@ -38,6 +39,9 @@ export class GetFolderTreeQueryHandler {
   async execute(userId: string): Promise<FolderTreeResultDTO> {
     const allBookmarks = await this.repository.findAllByUserId(userId);
 
+    const processing = allBookmarks
+      .filter((b) => b.status === BookmarkStatus.PROCESSING)
+      .map((b) => this.toDTO(b));
     const pending = allBookmarks.filter((b) => b.status === BookmarkStatus.PENDING);
     const visited = allBookmarks
       .filter((b) => b.status === BookmarkStatus.VISITED)
@@ -73,6 +77,7 @@ export class GetFolderTreeQueryHandler {
     return {
       pendingFolders,
       visitedBookmarks: visited,
+      processingBookmarks: processing,
     };
   }
 

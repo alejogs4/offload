@@ -17,6 +17,7 @@
     "@libsql/client": "^0.14.0",
     "@react-router/node": "^7.1.5",
     "@react-router/serve": "^7.1.5",
+    "@vercel/functions": "^3.9.3",
     "ai": "^4.1.20",
     "better-sqlite3": "^11.8.0",
     "cheerio": "^1.0.0",

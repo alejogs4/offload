@@ -5,6 +5,7 @@ import { MarkBookmarkVisitedCommandHandler } from "~/modules/bookmark/applicatio
 import { VercelAiCategorizerAdapter } from "~/modules/categorization/infrastructure/vercel-ai-categorizer-adapter";
 import { CategorizeBookmarkHandler } from "~/modules/categorization/application/categorize-bookmark-handler";
 import { GetFolderTreeQueryHandler } from "~/modules/categorization/application/get-folder-tree-query";
+import { BookmarkEnrichmentService } from "~/modules/bookmark/domain/services/bookmark-enrichment-service";
 import { eventBus } from "./events/in-memory-event-bus";
 
 // Singleton instances for ports & adapters
@@ -12,12 +13,19 @@ export const bookmarkRepository = new DrizzleBookmarkRepository();
 export const metadataScraper = MetadataScraperFactory.createDefault();
 export const categorizer = new VercelAiCategorizerAdapter();
 
+// Domain Services
+export const bookmarkEnrichmentService = new BookmarkEnrichmentService(
+  bookmarkRepository,
+  metadataScraper,
+  categorizer,
+  eventBus
+);
+
 // Application Command & Query Handlers
 export const createBookmarkHandler = new CreateBookmarkCommandHandler(
   bookmarkRepository,
-  metadataScraper,
-  eventBus,
-  categorizer
+  bookmarkEnrichmentService,
+  eventBus
 );
 
 export const markBookmarkVisitedHandler = new MarkBookmarkVisitedCommandHandler(
@@ -32,8 +40,3 @@ export const categorizeBookmarkHandler = new CategorizeBookmarkHandler(
 );
 
 export const getFolderTreeQuery = new GetFolderTreeQueryHandler(bookmarkRepository);
-
-// Wire Domain Event subscriptions
-eventBus.subscribe("BookmarkCreatedEvent", (event: any) => {
-  categorizeBookmarkHandler.handle(event);
-});

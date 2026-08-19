@@ -4,13 +4,12 @@ import {
   BookmarkState,
   UrlSchema,
   UserIdSchema,
-  DefaultTaxonomy,
 } from "../domain/bookmark-schema";
 import { BookmarkCreatedEvent } from "../domain/bookmark-events";
 import { BookmarkRepositoryPort } from "../domain/bookmark-repository-port";
-import { MetadataScraperPort } from "../domain/metadata-scraper-port";
 import { EventBusPort } from "~/shared/domain/domain-event";
-import { CategorizerPort } from "~/modules/categorization/domain/categorizer-port";
+import { BookmarkEnrichmentService } from "../domain/services/bookmark-enrichment-service";
+import { runBackground } from "~/shared/infrastructure/async/wait-until";
 
 export const CreateBookmarkInputSchema = z.object({
   userId: UserIdSchema,
@@ -23,41 +22,25 @@ export class CreateBookmarkCommandHandler {
   private bookmarkAggregate = new Bookmark();
 
   constructor(
-    private repository: BookmarkRepositoryPort,
-    private scraper: MetadataScraperPort,
-    private eventBus: EventBusPort,
-    private categorizer?: CategorizerPort
+    private readonly repository: BookmarkRepositoryPort,
+    private readonly enrichmentService: BookmarkEnrichmentService,
+    private readonly eventBus: EventBusPort
   ) {}
 
   async execute(rawInput: CreateBookmarkInput): Promise<BookmarkState> {
     const input = CreateBookmarkInputSchema.parse(rawInput);
-    const scraped = await this.scraper.scrape(input.url);
 
-    let category: string = DefaultTaxonomy.CATEGORY;
-    let subcategory: string = DefaultTaxonomy.SUBCATEGORY;
-
-    if (this.categorizer) {
-      try {
-        const result = await this.categorizer.categorize(
-          scraped.title,
-          scraped.description,
-          input.url
-        );
-        category = result.category || category;
-        subcategory = result.subcategory || subcategory;
-      } catch (err) {
-        console.warn("[CreateBookmarkCommandHandler] Categorization inline warning:", err);
-      }
+    let defaultTitle = "";
+    try {
+      defaultTitle = new URL(input.url).hostname;
+    } catch {
+      defaultTitle = input.url;
     }
 
-    const { event, evolved } = this.bookmarkAggregate.create({
+    const { evolved } = this.bookmarkAggregate.createProcessing({
       userId: input.userId,
       url: input.url,
-      title: scraped.title,
-      description: scraped.description,
-      ogImage: scraped.ogImage,
-      category,
-      subcategory,
+      title: defaultTitle,
     });
 
     await this.repository.save(evolved);
@@ -71,6 +54,8 @@ export class CreateBookmarkCommandHandler {
         description: evolved.description,
       })
     );
+
+    runBackground(this.enrichmentService.enrich(evolved));
 
     return evolved;
   }

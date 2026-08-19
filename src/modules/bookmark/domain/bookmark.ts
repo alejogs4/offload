@@ -18,6 +18,21 @@ export interface CreateBookmarkProps {
   subcategory?: string;
 }
 
+export interface CreateProcessingProps {
+  id?: string;
+  userId: string;
+  url: string;
+  title?: string;
+}
+
+export interface CompleteProcessingProps {
+  title: string;
+  description?: string;
+  ogImage?: string;
+  category?: string;
+  subcategory?: string;
+}
+
 export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
   /**
    * Enforces creation invariants and generates the initial BookmarkCreated event + evolved state.
@@ -44,6 +59,79 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
     };
 
     return { event, evolved: this.evolve(null, event) };
+  }
+
+  /**
+   * Creates an initial lightweight bookmark in PROCESSING state for fast ingestion (<20ms).
+   */
+  public createProcessing(
+    props: CreateProcessingProps
+  ): { event: BookmarkEvent; evolved: BookmarkState } {
+    const now = new Date();
+    let defaultTitle = props.title?.trim();
+    if (!defaultTitle) {
+      try {
+        defaultTitle = new URL(props.url).hostname;
+      } catch {
+        defaultTitle = props.url;
+      }
+    }
+
+    const state = BookmarkStateSchema.parse({
+      id: props.id ?? crypto.randomUUID(),
+      userId: props.userId,
+      url: props.url,
+      title: defaultTitle,
+      description: "",
+      ogImage: undefined,
+      category: DefaultTaxonomy.CATEGORY,
+      subcategory: DefaultTaxonomy.SUBCATEGORY,
+      status: BookmarkStatus.PROCESSING,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const event: BookmarkEvent = {
+      type: "BookmarkProcessingStarted",
+      payload: state,
+    };
+
+    return { event, evolved: this.evolve(null, event) };
+  }
+
+  /**
+   * Completes background processing, transitioning bookmark to PENDING with enriched metadata.
+   */
+  public completeProcessing(
+    state: BookmarkState,
+    props: CompleteProcessingProps
+  ): { event: BookmarkEvent; evolved: BookmarkState } {
+    if (state.status === BookmarkStatus.VISITED) {
+      throw new Error("InvalidInvariant: Cannot complete processing for a visited bookmark");
+    }
+
+    const trimmedTitle = props.title?.trim() || state.title;
+    const trimmedDesc = props.description !== undefined ? props.description : state.description;
+    const trimmedCat = props.category?.trim() || state.category || DefaultTaxonomy.CATEGORY;
+    const trimmedSub = props.subcategory?.trim() || state.subcategory || DefaultTaxonomy.SUBCATEGORY;
+
+    const updatedState = BookmarkStateSchema.parse({
+      ...state,
+      title: trimmedTitle,
+      description: trimmedDesc,
+      ogImage: props.ogImage ?? state.ogImage,
+      category: trimmedCat,
+      subcategory: trimmedSub,
+      status: BookmarkStatus.PENDING,
+      updatedAt: new Date(),
+    });
+
+    const event: BookmarkEvent = {
+      type: "BookmarkProcessingCompleted",
+      payload: updatedState,
+    };
+
+    return { event, evolved: this.evolve(state, event) };
   }
 
   /**
@@ -107,7 +195,16 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
   protected evolve(state: BookmarkState | null, event: BookmarkEvent): BookmarkState {
     switch (event.type) {
       case "BookmarkCreated":
+      case "BookmarkProcessingStarted":
         return event.payload;
+
+      case "BookmarkProcessingCompleted":
+      case "BookmarkProcessingFailed": {
+        if (!state) {
+          throw new Error("Cannot evolve non-existent bookmark state");
+        }
+        return event.payload;
+      }
 
       case "BookmarkVisited": {
         if (!state) {

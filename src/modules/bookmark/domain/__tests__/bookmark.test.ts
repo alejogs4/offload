@@ -162,4 +162,59 @@ describe("Bookmark Aggregate & Domain Invariants", () => {
 
     expect(fromDbWithRelativeOg.ogImage).toBe("/assets/banner.png");
   });
+
+  it("should create a valid processing bookmark and generate BookmarkProcessingStarted event", () => {
+    const { event, evolved } = bookmark.createProcessing({
+      userId: "user-1",
+      url: "https://news.ycombinator.com/item?id=12345",
+    });
+
+    expect(event.type).toBe("BookmarkProcessingStarted");
+    expect(evolved.id).toBeDefined();
+    expect(evolved.status).toBe(BookmarkStatus.PROCESSING);
+    expect(evolved.title).toBe("news.ycombinator.com");
+    expect(evolved.category).toBe(DefaultTaxonomy.CATEGORY);
+    expect(evolved.subcategory).toBe(DefaultTaxonomy.SUBCATEGORY);
+  });
+
+  it("should complete processing and transition from PROCESSING to PENDING with enriched metadata", () => {
+    const { evolved: processingState } = bookmark.createProcessing({
+      userId: "user-1",
+      url: "https://example.com/deep-dive",
+    });
+
+    const { event, evolved: completedState } = bookmark.completeProcessing(processingState, {
+      title: "Deep Dive into TypeScript",
+      description: "Comprehensive guide to advanced types",
+      ogImage: "https://example.com/banner.png",
+      category: "Tech",
+      subcategory: "TypeScript",
+    });
+
+    expect(event.type).toBe("BookmarkProcessingCompleted");
+    expect(completedState.id).toBe(processingState.id);
+    expect(completedState.status).toBe(BookmarkStatus.PENDING);
+    expect(completedState.title).toBe("Deep Dive into TypeScript");
+    expect(completedState.description).toBe("Comprehensive guide to advanced types");
+    expect(completedState.ogImage).toBe("https://example.com/banner.png");
+    expect(completedState.category).toBe("Tech");
+    expect(completedState.subcategory).toBe("TypeScript");
+  });
+
+  it("should throw error when attempting to complete processing on a visited bookmark", () => {
+    const { evolved: initialState } = bookmark.create({
+      userId: "user-1",
+      url: "https://example.com",
+      title: "Initial",
+      description: "Desc",
+    });
+
+    const { evolved: visitedState } = bookmark.markAsVisited(initialState, "user-1");
+
+    expect(() => {
+      bookmark.completeProcessing(visitedState, {
+        title: "New Title",
+      });
+    }).toThrow(/Cannot complete processing for a visited bookmark/);
+  });
 });
