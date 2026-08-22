@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "~/shared/infrastructure/db/client";
 import { bookmarksTable } from "~/shared/infrastructure/db/schema";
-import { BookmarkState, BookmarkStateSchema } from "../domain/bookmark-schema";
+import { BookmarkState, BookmarkStateSchema, BookmarkStatus } from "../domain/bookmark-schema";
 import { BookmarkRepositoryPort } from "../domain/bookmark-repository-port";
 
 export class DrizzleBookmarkRepository implements BookmarkRepositoryPort {
@@ -43,6 +43,24 @@ export class DrizzleBookmarkRepository implements BookmarkRepositoryPort {
         updatedAt: validated.updatedAt,
       })
       .where(eq(bookmarksTable.id, validated.id));
+  }
+
+  async markAsVisited(id: string, userId: string): Promise<BookmarkState> {
+    const now = new Date();
+    const rows = await db
+      .update(bookmarksTable)
+      .set({
+        status: BookmarkStatus.VISITED,
+        updatedAt: now,
+      })
+      .where(and(eq(bookmarksTable.id, id), eq(bookmarksTable.userId, userId)))
+      .returning();
+
+    if (rows.length === 0) {
+      throw new Error(`Bookmark not found or unauthorized: ${id}`);
+    }
+
+    return this.decodeRow(rows[0]);
   }
 
   async findAllByUserId(userId: string): Promise<BookmarkState[]> {

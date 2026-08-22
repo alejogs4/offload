@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { Bookmark } from "../domain/bookmark";
 import { BookmarkIdSchema, UserIdSchema } from "../domain/bookmark-schema";
 import { BookmarkVisitedEvent } from "../domain/bookmark-events";
 import { BookmarkRepositoryPort } from "../domain/bookmark-repository-port";
@@ -13,8 +12,6 @@ export const MarkBookmarkVisitedInputSchema = z.object({
 export type MarkBookmarkVisitedInput = z.infer<typeof MarkBookmarkVisitedInputSchema>;
 
 export class MarkBookmarkVisitedCommandHandler {
-  private bookmarkAggregate = new Bookmark();
-
   constructor(
     private repository: BookmarkRepositoryPort,
     private eventBus: EventBusPort
@@ -22,13 +19,9 @@ export class MarkBookmarkVisitedCommandHandler {
 
   async execute(rawInput: MarkBookmarkVisitedInput): Promise<void> {
     const input = MarkBookmarkVisitedInputSchema.parse(rawInput);
-    const state = await this.repository.findById(input.bookmarkId);
-    if (!state) {
-      throw new Error(`Bookmark not found: ${input.bookmarkId}`);
-    }
 
-    const { event, evolved } = this.bookmarkAggregate.markAsVisited(state, input.userId);
-    await this.repository.update(evolved);
+    // Single atomic database round-trip
+    const evolved = await this.repository.markAsVisited(input.bookmarkId, input.userId);
 
     await this.eventBus.publish(
       new BookmarkVisitedEvent({
@@ -38,3 +31,4 @@ export class MarkBookmarkVisitedCommandHandler {
     );
   }
 }
+

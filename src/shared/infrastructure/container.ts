@@ -1,4 +1,5 @@
 import { DrizzleBookmarkRepository } from "~/modules/bookmark/infrastructure/drizzle-bookmark-repository";
+import { TelemetryBookmarkRepositoryDecorator } from "~/modules/bookmark/infrastructure/telemetry-bookmark-repository-decorator";
 import { MetadataScraperFactory } from "~/modules/bookmark/infrastructure/scraper/metadata-scraper-factory";
 import { CreateBookmarkCommandHandler } from "~/modules/bookmark/application/create-bookmark-command";
 import { MarkBookmarkVisitedCommandHandler } from "~/modules/bookmark/application/mark-bookmark-visited-command";
@@ -9,7 +10,8 @@ import { BookmarkEnrichmentService } from "~/modules/bookmark/domain/services/bo
 import { eventBus } from "./events/in-memory-event-bus";
 
 // Singleton instances for ports & adapters
-export const bookmarkRepository = new DrizzleBookmarkRepository();
+const rawBookmarkRepository = new DrizzleBookmarkRepository();
+export const bookmarkRepository = new TelemetryBookmarkRepositoryDecorator(rawBookmarkRepository);
 export const metadataScraper = MetadataScraperFactory.createDefault();
 export const categorizer = new VercelAiCategorizerAdapter();
 

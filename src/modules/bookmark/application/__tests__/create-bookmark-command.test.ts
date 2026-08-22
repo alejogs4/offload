@@ -64,6 +64,10 @@ describe("Bookmark Application Command Handlers", () => {
         findById: vi.fn().mockResolvedValue(existingBookmark),
         save: vi.fn(),
         update: vi.fn().mockResolvedValue(undefined),
+        markAsVisited: vi.fn().mockResolvedValue({
+          ...existingBookmark,
+          status: BookmarkStatus.VISITED,
+        }),
         findAllByUserId: vi.fn(),
       };
 
@@ -78,11 +82,9 @@ describe("Bookmark Application Command Handlers", () => {
         bookmarkId: "123e4567-e89b-12d3-a456-426614174000",
       });
 
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "123e4567-e89b-12d3-a456-426614174000",
-          status: BookmarkStatus.VISITED,
-        })
+      expect(mockRepo.markAsVisited).toHaveBeenCalledWith(
+        "123e4567-e89b-12d3-a456-426614174000",
+        "user-123"
       );
       expect(mockEventBus.publish).toHaveBeenCalledOnce();
     });

@@ -1,15 +1,16 @@
-import { redirect, useLoaderData, useRevalidator } from "react-router";
+import { redirect, useLoaderData, useRevalidator, data } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useState, useEffect, useRef } from "react";
 import { z } from "zod";
 import { isAuthenticatedRequest, DEFAULT_USER_ID } from "~/modules/auth/application/auth-session";
 import { getFolderTreeQuery, createBookmarkHandler, markBookmarkVisitedHandler } from "~/shared/infrastructure/container";
+import { withServerTiming } from "~/shared/infrastructure/telemetry/server-timing";
 import { BookmarkStatus } from "~/modules/bookmark/domain/bookmark-status";
 import { BookmarkIcon } from "~/shared/ui/icons";
 import { BookmarkInputBar } from "~/modules/bookmark/ui/bookmark-input-bar";
 import { InProgressBookmarks } from "~/modules/bookmark/ui/in-progress-bookmarks";
 import { BookmarkViewTabs } from "~/modules/bookmark/ui/bookmark-view-tabs";
-import { PendingChecklistView } from "~/modules/bookmark/ui/pending-checklist-view";
+import { PendingChecklistView, useInFlightVisitedIds } from "~/modules/bookmark/ui/pending-checklist-view";
 import { VisitedHistoryView } from "~/modules/bookmark/ui/visited-history-view";
 
 const CreateActionSchema = z.object({
@@ -21,62 +22,103 @@ const MarkVisitedActionSchema = z.object({
 });
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const cookieHeader = request.headers.get("Cookie");
-  if (!isAuthenticatedRequest(cookieHeader)) {
+  const { result, timing } = await withServerTiming(async (t) => {
+    const authStart = performance.now();
+    const cookieHeader = request.headers.get("Cookie");
+    const isAuth = isAuthenticatedRequest(cookieHeader);
+    t.record("auth", performance.now() - authStart, "Session verification");
+
+    if (!isAuth) {
+      return { redirect: true as const, folderTree: null };
+    }
+
+    const folderTree = await getFolderTreeQuery.execute(DEFAULT_USER_ID);
+    return { redirect: false as const, folderTree };
+  });
+
+  if (result.redirect) {
     return redirect("/login");
   }
 
-  const data = await getFolderTreeQuery.execute(DEFAULT_USER_ID);
-  return { folderTree: data };
+  return data(
+    { folderTree: result.folderTree! },
+    {
+      headers: {
+        "Server-Timing": timing.toHeader(),
+      },
+    }
+  );
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const cookieHeader = request.headers.get("Cookie");
-  if (!isAuthenticatedRequest(cookieHeader)) {
+  const { result, timing } = await withServerTiming(async (t) => {
+    const authStart = performance.now();
+    const cookieHeader = request.headers.get("Cookie");
+    const isAuth = isAuthenticatedRequest(cookieHeader);
+    t.record("auth", performance.now() - authStart, "Session verification");
+
+    if (!isAuth) {
+      return { redirect: true as const, response: null };
+    }
+
+    const formData = await request.formData();
+    const intent = formData.get("intent")?.toString();
+
+    if (intent === "create") {
+      const parsed = CreateActionSchema.safeParse({
+        url: formData.get("url")?.toString().trim(),
+      });
+
+      if (!parsed.success) {
+        return {
+          redirect: false as const,
+          response: { error: parsed.error.issues[0]?.message || "Invalid URL format" },
+        };
+      }
+
+      try {
+        const bookmark = await createBookmarkHandler.execute({ userId: DEFAULT_USER_ID, url: parsed.data.url });
+        return { redirect: false as const, response: { success: true, bookmarkId: bookmark.id } };
+      } catch (err: any) {
+        return { redirect: false as const, response: { error: err.message || "Failed to save URL" } };
+      }
+    }
+
+    if (intent === "mark_visited") {
+      const parsed = MarkVisitedActionSchema.safeParse({
+        bookmarkId: formData.get("bookmarkId")?.toString(),
+      });
+
+      if (!parsed.success) {
+        return {
+          redirect: false as const,
+          response: { error: parsed.error.issues[0]?.message || "Invalid Bookmark ID" },
+        };
+      }
+
+      try {
+        await markBookmarkVisitedHandler.execute({
+          userId: DEFAULT_USER_ID,
+          bookmarkId: parsed.data.bookmarkId,
+        });
+        return { redirect: false as const, response: { success: true } };
+      } catch (err: any) {
+        return { redirect: false as const, response: { error: err.message || "Failed to mark as visited" } };
+      }
+    }
+
+    return { redirect: false as const, response: { error: "Unknown action intent" } };
+  });
+
+  if (result.redirect) {
     return redirect("/login");
   }
 
-  const formData = await request.formData();
-  const intent = formData.get("intent")?.toString();
-
-  if (intent === "create") {
-    const parsed = CreateActionSchema.safeParse({
-      url: formData.get("url")?.toString().trim(),
-    });
-
-    if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message || "Invalid URL format" };
-    }
-
-    try {
-      const bookmark = await createBookmarkHandler.execute({ userId: DEFAULT_USER_ID, url: parsed.data.url });
-      return { success: true, bookmarkId: bookmark.id };
-    } catch (err: any) {
-      return { error: err.message || "Failed to save URL" };
-    }
-  }
-
-  if (intent === "mark_visited") {
-    const parsed = MarkVisitedActionSchema.safeParse({
-      bookmarkId: formData.get("bookmarkId")?.toString(),
-    });
-
-    if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message || "Invalid Bookmark ID" };
-    }
-
-    try {
-      await markBookmarkVisitedHandler.execute({
-        userId: DEFAULT_USER_ID,
-        bookmarkId: parsed.data.bookmarkId,
-      });
-      return { success: true };
-    } catch (err: any) {
-      return { error: err.message || "Failed to mark as visited" };
-    }
-  }
-
-  return { error: "Unknown action intent" };
+  return data(result.response, {
+    headers: {
+      "Server-Timing": timing.toHeader(),
+    },
+  });
 }
 
 export default function DashboardRoute() {
@@ -84,6 +126,9 @@ export default function DashboardRoute() {
   const revalidator = useRevalidator();
   const [activeTab, setActiveTab] = useState<BookmarkStatus>(BookmarkStatus.PENDING);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
+  const inFlightVisitedIds = useInFlightVisitedIds();
+  const inFlightCount = inFlightVisitedIds.size;
 
   const processingBookmarks = folderTree.processingBookmarks ?? [];
   const processingCount = processingBookmarks.length;
@@ -104,11 +149,14 @@ export default function DashboardRoute() {
     return () => clearInterval(interval);
   }, [processingCount]);
 
-  const totalPending = folderTree.pendingFolders.reduce(
+  const rawPendingCount = folderTree.pendingFolders.reduce(
     (acc, f) => acc + f.subcategories.reduce((sAcc, s) => sAcc + s.bookmarks.length, 0),
     0
   );
-  const totalVisited = folderTree.visitedBookmarks.length;
+  const rawVisitedCount = folderTree.visitedBookmarks.length;
+
+  const optimisticPendingCount = Math.max(0, rawPendingCount - inFlightCount);
+  const optimisticVisitedCount = rawVisitedCount + inFlightCount;
 
   const toggleCategory = (categoryName: string) => {
     setExpandedCategories((prev) => {
@@ -156,8 +204,8 @@ export default function DashboardRoute() {
         <BookmarkViewTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          pendingCount={totalPending}
-          visitedCount={totalVisited}
+          pendingCount={optimisticPendingCount}
+          visitedCount={optimisticVisitedCount}
         />
 
         {/* Pending Reading List View */}
