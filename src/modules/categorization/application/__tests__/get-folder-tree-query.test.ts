@@ -61,6 +61,7 @@ describe("GetFolderTreeQueryHandler", () => {
       save: vi.fn(),
       update: vi.fn(),
       findAllByUserId: vi.fn().mockResolvedValue(mockBookmarks),
+      markAsVisited: vi.fn(),
     };
 
     const handler = new GetFolderTreeQueryHandler(mockRepo);

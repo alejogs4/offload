@@ -27,6 +27,7 @@ describe("CategorizeBookmarkHandler", () => {
       save: vi.fn(),
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
+      markAsVisited: vi.fn(),
     };
 
     const mockCategorizer = {

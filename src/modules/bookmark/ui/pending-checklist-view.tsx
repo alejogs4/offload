@@ -9,6 +9,7 @@ import {
   GlobeIcon,
   InboxIcon,
   ChevronDownIcon,
+  SearchIcon,
 } from "~/shared/ui/icons";
 
 function getDomainFromUrl(url: string): string {
@@ -44,6 +45,8 @@ interface PendingChecklistViewProps {
   processingCount?: number;
   expandedCategories: Record<string, boolean>;
   onToggleCategory: (categoryName: string) => void;
+  isFiltered?: boolean;
+  onClearFilters?: () => void;
 }
 
 function PendingBookmarkItem({ bookmark }: { bookmark: BookmarkItemDTO }) {
@@ -134,6 +137,8 @@ export function PendingChecklistView({
   processingCount = 0,
   expandedCategories,
   onToggleCategory,
+  isFiltered = false,
+  onClearFilters,
 }: PendingChecklistViewProps) {
   const inFlightVisitedIds = useInFlightVisitedIds();
 
@@ -156,6 +161,29 @@ export function PendingChecklistView({
     .filter((category) => category.totalItems > 0);
 
   if (visibleFolders.length === 0 && processingCount === 0) {
+    if (isFiltered) {
+      return (
+        <div className="empty-placeholder">
+          <div className="empty-icon-wrap">
+            <SearchIcon size={28} />
+          </div>
+          <h2 className="empty-title">No matching bookmarks found</h2>
+          <p className="empty-subtitle">
+            No pending items match your current filters. Try changing your search query or category.
+          </p>
+          {onClearFilters && (
+            <button
+              type="button"
+              className="filter-empty-reset-btn"
+              onClick={onClearFilters}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="empty-placeholder">
         <div className="empty-icon-wrap">

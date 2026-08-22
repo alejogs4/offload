@@ -12,6 +12,8 @@ import { InProgressBookmarks } from "~/modules/bookmark/ui/in-progress-bookmarks
 import { BookmarkViewTabs } from "~/modules/bookmark/ui/bookmark-view-tabs";
 import { PendingChecklistView, useInFlightVisitedIds } from "~/modules/bookmark/ui/pending-checklist-view";
 import { VisitedHistoryView } from "~/modules/bookmark/ui/visited-history-view";
+import { BookmarkFilterBar } from "~/modules/bookmark/ui/bookmark-filter-bar";
+import { useBookmarkFilters } from "~/modules/bookmark/ui/use-bookmark-filters";
 
 const CreateActionSchema = z.object({
   url: z.string().url({ message: "A valid URL is required" }),
@@ -158,6 +160,24 @@ export default function DashboardRoute() {
   const optimisticPendingCount = Math.max(0, rawPendingCount - inFlightCount);
   const optimisticVisitedCount = rawVisitedCount + inFlightCount;
 
+  const {
+    searchQuery,
+    setSearchQuery,
+    selectedCategory,
+    setSelectedCategory,
+    clearFilters,
+    filteredPendingFolders,
+    filteredVisitedBookmarks,
+    availableCategories,
+    totalCount,
+    filteredCount,
+    isFiltered,
+  } = useBookmarkFilters({
+    pendingFolders: folderTree.pendingFolders,
+    visitedBookmarks: folderTree.visitedBookmarks,
+    activeTab,
+  });
+
   const toggleCategory = (categoryName: string) => {
     setExpandedCategories((prev) => {
       const current = prev[categoryName] ?? true;
@@ -208,19 +228,37 @@ export default function DashboardRoute() {
           visitedCount={optimisticVisitedCount}
         />
 
+        {/* Client-Side Filter Bar */}
+        <BookmarkFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          availableCategories={availableCategories}
+          totalCount={totalCount}
+          filteredCount={filteredCount}
+          onClearFilters={clearFilters}
+        />
+
         {/* Pending Reading List View */}
         {activeTab === BookmarkStatus.PENDING && (
           <PendingChecklistView
-            pendingFolders={folderTree.pendingFolders}
+            pendingFolders={filteredPendingFolders}
             processingCount={processingCount}
             expandedCategories={expandedCategories}
             onToggleCategory={toggleCategory}
+            isFiltered={isFiltered}
+            onClearFilters={clearFilters}
           />
         )}
 
         {/* Visited Archive View */}
         {activeTab === BookmarkStatus.VISITED && (
-          <VisitedHistoryView visitedBookmarks={folderTree.visitedBookmarks} />
+          <VisitedHistoryView
+            visitedBookmarks={filteredVisitedBookmarks}
+            isFiltered={isFiltered}
+            onClearFilters={clearFilters}
+          />
         )}
       </main>
     </div>

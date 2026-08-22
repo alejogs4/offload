@@ -6,6 +6,7 @@ import {
   CheckCircleIcon,
   ExternalLinkIcon,
   GlobeIcon,
+  SearchIcon,
 } from "~/shared/ui/icons";
 
 function getDomainFromUrl(url: string): string {
@@ -18,10 +19,39 @@ function getDomainFromUrl(url: string): string {
 
 interface VisitedHistoryViewProps {
   visitedBookmarks: BookmarkItemDTO[];
+  isFiltered?: boolean;
+  onClearFilters?: () => void;
 }
 
-export function VisitedHistoryView({ visitedBookmarks }: VisitedHistoryViewProps) {
+export function VisitedHistoryView({
+  visitedBookmarks,
+  isFiltered = false,
+  onClearFilters,
+}: VisitedHistoryViewProps) {
   if (visitedBookmarks.length === 0) {
+    if (isFiltered) {
+      return (
+        <div className="empty-placeholder">
+          <div className="empty-icon-wrap">
+            <SearchIcon size={28} />
+          </div>
+          <h2 className="empty-title">No matching archived links</h2>
+          <p className="empty-subtitle">
+            No visited bookmarks match your search criteria. Try adjusting your query or category.
+          </p>
+          {onClearFilters && (
+            <button
+              type="button"
+              className="filter-empty-reset-btn"
+              onClick={onClearFilters}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="empty-placeholder">
         <div className="empty-icon-wrap">

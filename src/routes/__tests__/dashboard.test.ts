@@ -50,7 +50,7 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
       request,
       params: {},
       context: {} as any,
-    });
+    } as any);
 
     const serverTiming = extractServerTimingHeader(response);
     expect(serverTiming).toBeDefined();
@@ -66,11 +66,11 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
       headers: {},
     });
 
-    const response = await loader({
+    const response = (await loader({
       request,
       params: {},
       context: {} as any,
-    });
+    } as any)) as Response;
 
     expect(response).toBeInstanceOf(Response);
     expect(response.status).toBe(302);
@@ -96,7 +96,7 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
       request,
       params: {},
       context: {} as any,
-    });
+    } as any);
 
     const serverTiming = extractServerTimingHeader(response);
     expect(serverTiming).toBeDefined();

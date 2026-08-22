@@ -23,6 +23,7 @@ describe("BookmarkEnrichmentService", () => {
       save: vi.fn(),
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
+      markAsVisited: vi.fn(),
     };
 
     const mockScraper = {
@@ -75,6 +76,7 @@ describe("BookmarkEnrichmentService", () => {
       save: vi.fn(),
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
+      markAsVisited: vi.fn(),
     };
 
     const mockScraper = {
@@ -114,6 +116,7 @@ describe("BookmarkEnrichmentService", () => {
       save: vi.fn(),
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
+      markAsVisited: vi.fn(),
     };
 
     const mockScraper = {

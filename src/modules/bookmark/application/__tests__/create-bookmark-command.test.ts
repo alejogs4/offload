@@ -12,6 +12,7 @@ describe("Bookmark Application Command Handlers", () => {
         save: vi.fn().mockResolvedValue(undefined),
         update: vi.fn(),
         findAllByUserId: vi.fn(),
+        markAsVisited: vi.fn(),
       };
 
       const mockEnrichmentService = {
