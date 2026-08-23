@@ -68,7 +68,7 @@ export function VisitedHistoryView({
       <div className="category-card-header">
         <div className="category-title-wrap">
           <CheckCircleIcon className="category-icon" size={18} />
-          <span>Read History</span>
+          <span>Read history</span>
         </div>
         <span className="category-badge">{visitedBookmarks.length} read</span>
       </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useFetcher } from "react-router";
-import { LinkIcon, PlusIcon } from "~/shared/ui/icons";
+import { LinkIcon, PlusIcon, AlertCircleIcon } from "~/shared/ui/icons";
 
 export function BookmarkInputBar() {
   const fetcher = useFetcher<{ error?: string; success?: boolean }>();
@@ -55,7 +55,7 @@ export function BookmarkInputBar() {
 
       {fetcher.data?.error && (
         <div className="error-toast" role="alert">
-          <span>⚠️</span>
+          <AlertCircleIcon size={16} />
           <span>{fetcher.data.error}</span>
         </div>
       )}

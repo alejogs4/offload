@@ -20,12 +20,12 @@ export function InProgressBookmarks({ bookmarks }: InProgressBookmarksProps) {
   }
 
   return (
-    <section className="processing-queue-section" aria-label="Saving Links">
+    <section className="processing-queue-section" aria-label="Saving links">
       <div className="processing-queue-header">
         <div className="processing-queue-title-wrap">
           <span className="pulse-indicator" aria-hidden="true" />
           <h2 className="processing-queue-title">
-            Saving Links ({bookmarks.length})
+            Saving links ({bookmarks.length})
           </h2>
         </div>
         <span className="processing-badge">
@@ -37,7 +37,6 @@ export function InProgressBookmarks({ bookmarks }: InProgressBookmarksProps) {
       <div className="processing-cards-list">
         {bookmarks.map((bookmark) => (
           <div key={bookmark.id} className="processing-card" role="status" aria-live="polite">
-            <div className="processing-card-shimmer" aria-hidden="true" />
             <div className="processing-card-content">
               <div className="processing-spinner-box" aria-hidden="true">
                 <span className="processing-spinner" />

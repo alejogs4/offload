@@ -8,3 +8,5 @@ sqlite.db-wal
 build/
 .react-router/
 guides/
+.agents
+skills-lock.json

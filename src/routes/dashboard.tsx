@@ -205,8 +205,8 @@ export default function DashboardRoute() {
 
           <div className="header-meta">
             <span className="header-meta-badge">
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success-color)", display: "inline-block" }} />
-              Workspace Active
+              <span className="status-dot" aria-hidden="true" />
+              <span>Workspace active</span>
             </span>
           </div>
         </div>

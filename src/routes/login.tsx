@@ -1,7 +1,7 @@
 import { redirect, useActionData, Form } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { isPasscodeValid, createAuthCookieHeader, isAuthenticatedRequest } from "~/modules/auth/application/auth-session";
-import { LockIcon } from "~/shared/ui/icons";
+import { LockIcon, AlertCircleIcon } from "~/shared/ui/icons";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const cookieHeader = request.headers.get("Cookie");
@@ -43,7 +43,7 @@ export default function LoginRoute() {
 
         {actionData?.error && (
           <div className="error-toast" role="alert" style={{ marginBottom: "1.25rem", marginTop: 0 }}>
-            <span>⚠️</span>
+            <AlertCircleIcon size={16} />
             <span>{actionData.error}</span>
           </div>
         )}
