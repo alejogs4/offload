@@ -106,12 +106,6 @@ function PendingBookmarkItem({ bookmark }: { bookmark: BookmarkItemDTO }) {
           target="_blank"
           rel="noopener noreferrer"
           className="item-title-link"
-          onClick={() => {
-            fetcher.submit(
-              { intent: "mark_visited", bookmarkId: bookmark.id },
-              { method: "post" }
-            );
-          }}
         >
           <span>{bookmark.title}</span>
           <ExternalLinkIcon size={13} className="item-external-icon" />
