@@ -10,9 +10,19 @@ describe("DrizzleBookmarkRepository", () => {
   beforeEach(async () => {
     // Ensure table exists and clear test data
     await client.execute(`
+      CREATE TABLE IF NOT EXISTS user (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        email_verified INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS bookmarks (
         id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
         url TEXT NOT NULL,
         title TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
@@ -25,7 +35,11 @@ describe("DrizzleBookmarkRepository", () => {
       );
     `);
     await client.execute({
-      sql: "DELETE FROM bookmarks WHERE user_id = ?",
+      sql: "INSERT OR IGNORE INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      args: [userId, "Test User", "test-drizzle@example.com", 1, Date.now(), Date.now()],
+    });
+    await client.execute({
+      sql: "DELETE FROM bookmarks WHERE id IN ('33333333-3333-4333-8333-333333333333', '44444444-4444-4444-8444-444444444444') OR user_id = ?",
       args: [userId],
     });
   });

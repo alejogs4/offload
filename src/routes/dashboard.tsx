@@ -2,11 +2,10 @@ import { redirect, useLoaderData, useRevalidator, data } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useState, useEffect, useRef } from "react";
 import { z } from "zod";
-import { isAuthenticatedRequest, DEFAULT_USER_ID } from "~/modules/auth/application/auth-session";
+import { auth } from "~/shared/infrastructure/auth/auth.server";
 import { getFolderTreeQuery, createBookmarkHandler, markBookmarkVisitedHandler } from "~/shared/infrastructure/container";
 import { withServerTiming } from "~/shared/infrastructure/telemetry/server-timing";
 import { BookmarkStatus } from "~/modules/bookmark/domain/bookmark-status";
-import { BookmarkIcon } from "~/shared/ui/icons";
 import { BookmarkInputBar } from "~/modules/bookmark/ui/bookmark-input-bar";
 import { InProgressBookmarks } from "~/modules/bookmark/ui/in-progress-bookmarks";
 import { BookmarkViewTabs } from "~/modules/bookmark/ui/bookmark-view-tabs";
@@ -26,15 +25,16 @@ const MarkVisitedActionSchema = z.object({
 export async function loader({ request }: LoaderFunctionArgs) {
   const { result, timing } = await withServerTiming(async (t) => {
     const authStart = performance.now();
-    const cookieHeader = request.headers.get("Cookie");
-    const isAuth = isAuthenticatedRequest(cookieHeader);
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
     t.record("auth", performance.now() - authStart, "Session verification");
 
-    if (!isAuth) {
+    if (!session) {
       return { redirect: true as const, folderTree: null };
     }
 
-    const folderTree = await getFolderTreeQuery.execute(DEFAULT_USER_ID);
+    const folderTree = await getFolderTreeQuery.execute(session.user.id);
     return { redirect: false as const, folderTree };
   });
 
@@ -55,11 +55,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const { result, timing } = await withServerTiming(async (t) => {
     const authStart = performance.now();
-    const cookieHeader = request.headers.get("Cookie");
-    const isAuth = isAuthenticatedRequest(cookieHeader);
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
     t.record("auth", performance.now() - authStart, "Session verification");
 
-    if (!isAuth) {
+    if (!session) {
       return { redirect: true as const, response: null };
     }
 
@@ -79,7 +80,10 @@ export async function action({ request }: ActionFunctionArgs) {
       }
 
       try {
-        const bookmark = await createBookmarkHandler.execute({ userId: DEFAULT_USER_ID, url: parsed.data.url });
+        const bookmark = await createBookmarkHandler.execute({
+          userId: session.user.id,
+          url: parsed.data.url,
+        });
         return { redirect: false as const, response: { success: true, bookmarkId: bookmark.id } };
       } catch (err: any) {
         return { redirect: false as const, response: { error: err.message || "Failed to save URL" } };
@@ -100,7 +104,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
       try {
         await markBookmarkVisitedHandler.execute({
-          userId: DEFAULT_USER_ID,
+          userId: session.user.id,
           bookmarkId: parsed.data.bookmarkId,
         });
         return { redirect: false as const, response: { success: true } };
@@ -189,78 +193,53 @@ export default function DashboardRoute() {
   };
 
   return (
-    <div>
-      {/* Header */}
-      <header className="app-header">
-        <div className="header-content">
-          <div className="brand-container">
-            <a href="/" className="brand-title">
-              <div className="brand-icon-wrapper">
-                <BookmarkIcon size={18} />
-              </div>
-              <span>Offload</span>
-              <span className="brand-tag">PWA</span>
-            </a>
-          </div>
+    <main className="app-main">
+      {/* Quick URL Input Bar */}
+      <BookmarkInputBar />
 
-          <div className="header-meta">
-            <span className="header-meta-badge">
-              <span className="status-dot" aria-hidden="true" />
-              <span>Workspace active</span>
-            </span>
-          </div>
-        </div>
-      </header>
+      {/* Live Saving / In-Progress Links Section */}
+      <InProgressBookmarks bookmarks={processingBookmarks} />
 
-      {/* Main Content */}
-      <main className="app-main">
-        {/* Quick URL Input Bar */}
-        <BookmarkInputBar />
+      {/* View Tabs Header */}
+      <BookmarkViewTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        pendingCount={optimisticPendingCount}
+        visitedCount={optimisticVisitedCount}
+      />
 
-        {/* Live Saving / In-Progress Links Section */}
-        <InProgressBookmarks bookmarks={processingBookmarks} />
+      {/* Client-Side Filter Bar */}
+      <BookmarkFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        availableCategories={availableCategories}
+        totalCount={totalCount}
+        filteredCount={filteredCount}
+        onClearFilters={clearFilters}
+      />
 
-        {/* View Tabs Header */}
-        <BookmarkViewTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          pendingCount={optimisticPendingCount}
-          visitedCount={optimisticVisitedCount}
-        />
-
-        {/* Client-Side Filter Bar */}
-        <BookmarkFilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          availableCategories={availableCategories}
-          totalCount={totalCount}
-          filteredCount={filteredCount}
+      {/* Pending Reading List View */}
+      {activeTab === BookmarkStatus.PENDING && (
+        <PendingChecklistView
+          pendingFolders={filteredPendingFolders}
+          processingCount={processingCount}
+          expandedCategories={expandedCategories}
+          onToggleCategory={toggleCategory}
+          isFiltered={isFiltered}
           onClearFilters={clearFilters}
         />
+      )}
 
-        {/* Pending Reading List View */}
-        {activeTab === BookmarkStatus.PENDING && (
-          <PendingChecklistView
-            pendingFolders={filteredPendingFolders}
-            processingCount={processingCount}
-            expandedCategories={expandedCategories}
-            onToggleCategory={toggleCategory}
-            isFiltered={isFiltered}
-            onClearFilters={clearFilters}
-          />
-        )}
-
-        {/* Visited Archive View */}
-        {activeTab === BookmarkStatus.VISITED && (
-          <VisitedHistoryView
-            visitedBookmarks={filteredVisitedBookmarks}
-            isFiltered={isFiltered}
-            onClearFilters={clearFilters}
-          />
-        )}
-      </main>
-    </div>
+      {/* Visited Archive View */}
+      {activeTab === BookmarkStatus.VISITED && (
+        <VisitedHistoryView
+          visitedBookmarks={filteredVisitedBookmarks}
+          isFiltered={isFiltered}
+          onClearFilters={clearFilters}
+        />
+      )}
+    </main>
   );
 }
