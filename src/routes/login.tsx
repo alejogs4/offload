@@ -3,6 +3,8 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { isPasscodeValid, createAuthCookieHeader, isAuthenticatedRequest } from "~/modules/auth/application/auth-session";
 import { LockIcon, AlertCircleIcon } from "~/shared/ui/icons";
 
+import { toUserErrorMessage } from "~/shared/domain/errors";
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const cookieHeader = request.headers.get("Cookie");
   if (isAuthenticatedRequest(cookieHeader)) {
@@ -12,18 +14,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const formData = await request.formData();
-  const passcode = formData.get("passcode")?.toString() || "";
+  try {
+    const formData = await request.formData();
+    const passcode = formData.get("passcode")?.toString() || "";
 
-  if (!isPasscodeValid(passcode)) {
-    return { error: "Invalid passcode. Access denied." };
+    if (!isPasscodeValid(passcode)) {
+      return { error: "Invalid passcode. Access denied." };
+    }
+
+    return redirect("/", {
+      headers: {
+        "Set-Cookie": createAuthCookieHeader(true),
+      },
+    });
+  } catch (err: unknown) {
+    return { error: toUserErrorMessage(err, "Internal error") };
   }
-
-  return redirect("/", {
-    headers: {
-      "Set-Cookie": createAuthCookieHeader(true),
-    },
-  });
 }
 
 export default function LoginRoute() {

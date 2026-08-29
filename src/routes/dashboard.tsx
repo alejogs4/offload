@@ -5,8 +5,9 @@ import { z } from "zod";
 import { isAuthenticatedRequest, DEFAULT_USER_ID } from "~/modules/auth/application/auth-session";
 import { getFolderTreeQuery, createBookmarkHandler, markBookmarkVisitedHandler } from "~/shared/infrastructure/container";
 import { withServerTiming } from "~/shared/infrastructure/telemetry/server-timing";
+import { toUserErrorMessage } from "~/shared/domain/errors";
 import { BookmarkStatus } from "~/modules/bookmark/domain/bookmark-status";
-import { BookmarkIcon } from "~/shared/ui/icons";
+import { BookmarkIcon, AlertCircleIcon } from "~/shared/ui/icons";
 import { BookmarkInputBar } from "~/modules/bookmark/ui/bookmark-input-bar";
 import { InProgressBookmarks } from "~/modules/bookmark/ui/in-progress-bookmarks";
 import { BookmarkViewTabs } from "~/modules/bookmark/ui/bookmark-view-tabs";
@@ -53,74 +54,82 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const { result, timing } = await withServerTiming(async (t) => {
-    const authStart = performance.now();
-    const cookieHeader = request.headers.get("Cookie");
-    const isAuth = isAuthenticatedRequest(cookieHeader);
-    t.record("auth", performance.now() - authStart, "Session verification");
+  try {
+    const { result, timing } = await withServerTiming(async (t) => {
+      const authStart = performance.now();
+      const cookieHeader = request.headers.get("Cookie");
+      const isAuth = isAuthenticatedRequest(cookieHeader);
+      t.record("auth", performance.now() - authStart, "Session verification");
 
-    if (!isAuth) {
-      return { redirect: true as const, response: null };
-    }
-
-    const formData = await request.formData();
-    const intent = formData.get("intent")?.toString();
-
-    if (intent === "create") {
-      const parsed = CreateActionSchema.safeParse({
-        url: formData.get("url")?.toString().trim(),
-      });
-
-      if (!parsed.success) {
-        return {
-          redirect: false as const,
-          response: { error: parsed.error.issues[0]?.message || "Invalid URL format" },
-        };
+      if (!isAuth) {
+        return { redirect: true as const, response: null };
       }
 
-      try {
-        const bookmark = await createBookmarkHandler.execute({ userId: DEFAULT_USER_ID, url: parsed.data.url });
-        return { redirect: false as const, response: { success: true, bookmarkId: bookmark.id } };
-      } catch (err: any) {
-        return { redirect: false as const, response: { error: err.message || "Failed to save URL" } };
-      }
-    }
+      const formData = await request.formData();
+      const intent = formData.get("intent")?.toString();
 
-    if (intent === "mark_visited") {
-      const parsed = MarkVisitedActionSchema.safeParse({
-        bookmarkId: formData.get("bookmarkId")?.toString(),
-      });
-
-      if (!parsed.success) {
-        return {
-          redirect: false as const,
-          response: { error: parsed.error.issues[0]?.message || "Invalid Bookmark ID" },
-        };
-      }
-
-      try {
-        await markBookmarkVisitedHandler.execute({
-          userId: DEFAULT_USER_ID,
-          bookmarkId: parsed.data.bookmarkId,
+      if (intent === "create") {
+        const parsed = CreateActionSchema.safeParse({
+          url: formData.get("url")?.toString().trim(),
         });
-        return { redirect: false as const, response: { success: true } };
-      } catch (err: any) {
-        return { redirect: false as const, response: { error: err.message || "Failed to mark as visited" } };
+
+        if (!parsed.success) {
+          return {
+            redirect: false as const,
+            response: { error: parsed.error.issues[0]?.message || "Invalid URL format" },
+          };
+        }
+
+        try {
+          const bookmark = await createBookmarkHandler.execute({ userId: DEFAULT_USER_ID, url: parsed.data.url });
+          return { redirect: false as const, response: { success: true, bookmarkId: bookmark.id } };
+        } catch (err: unknown) {
+          return { redirect: false as const, response: { error: toUserErrorMessage(err, "Internal error") } };
+        }
       }
+
+      if (intent === "mark_visited") {
+        const parsed = MarkVisitedActionSchema.safeParse({
+          bookmarkId: formData.get("bookmarkId")?.toString(),
+        });
+
+        if (!parsed.success) {
+          return {
+            redirect: false as const,
+            response: { error: parsed.error.issues[0]?.message || "Invalid Bookmark ID" },
+          };
+        }
+
+        try {
+          await markBookmarkVisitedHandler.execute({
+            userId: DEFAULT_USER_ID,
+            bookmarkId: parsed.data.bookmarkId,
+          });
+          return { redirect: false as const, response: { success: true } };
+        } catch (err: unknown) {
+          return { redirect: false as const, response: { error: toUserErrorMessage(err, "Internal error") } };
+        }
+      }
+
+      return { redirect: false as const, response: { error: "Unknown action intent" } };
+    });
+
+    if (result.redirect) {
+      return redirect("/login");
     }
 
-    return { redirect: false as const, response: { error: "Unknown action intent" } };
-  });
-
-  if (result.redirect) {
-    return redirect("/login");
+    return data(result.response, {
+      headers: {
+        "Server-Timing": timing.toHeader(),
+      },
+    });
+  } catch (err: unknown) {
+    console.error("[Dashboard Action Top-Level Error]:", err);
+    return data(
+      { error: "Internal error" },
+      { status: 500 }
+    );
   }
-
-  return data(result.response, {
-    headers: {
-      "Server-Timing": timing.toHeader(),
-    },
-  });
 }
 
 export default function DashboardRoute() {
@@ -261,6 +270,28 @@ export default function DashboardRoute() {
           />
         )}
       </main>
+    </div>
+  );
+}
+
+export function ErrorBoundary() {
+  return (
+    <div className="app-main" style={{ paddingTop: "4rem" }}>
+      <div className="empty-placeholder" style={{ borderColor: "var(--status-danger-border)" }}>
+        <div className="empty-icon-wrap" style={{ color: "var(--status-danger-text)" }}>
+          <AlertCircleIcon size={24} />
+        </div>
+        <h2 className="empty-title">Internal error</h2>
+        <p className="empty-subtitle">An unexpected error occurred while loading your workspace.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="btn-submit"
+          style={{ marginTop: "1.25rem" }}
+        >
+          Reload page
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,9 @@
 import { BaseEntity } from "~/shared/domain/base-entity";
 import {
+  InvariantViolationError,
+  UnauthorizedError,
+} from "~/shared/domain/errors";
+import {
   BookmarkState,
   BookmarkStateSchema,
   BookmarkStatus,
@@ -107,7 +111,7 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
     props: CompleteProcessingProps
   ): { event: BookmarkEvent; evolved: BookmarkState } {
     if (state.status === BookmarkStatus.VISITED) {
-      throw new Error("InvalidInvariant: Cannot complete processing for a visited bookmark");
+      throw new InvariantViolationError("InvalidInvariant: Cannot complete processing for a visited bookmark");
     }
 
     const trimmedTitle = props.title?.trim() || state.title;
@@ -142,11 +146,11 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
     userId: string
   ): { event: BookmarkEvent; evolved: BookmarkState } {
     if (state.userId !== userId) {
-      throw new Error("Unauthorized: Cannot modify bookmark belonging to another user");
+      throw new UnauthorizedError("Unauthorized: Cannot modify bookmark belonging to another user");
     }
 
     if (state.status === BookmarkStatus.VISITED) {
-      throw new Error("InvalidInvariant: Bookmark is already marked as visited");
+      throw new InvariantViolationError("InvalidInvariant: Bookmark is already marked as visited");
     }
 
     const event: BookmarkEvent = {
@@ -173,7 +177,7 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
     const trimmedSubcategory = subcategory.trim();
 
     if (!trimmedCategory) {
-      throw new Error("InvalidInvariant: Category cannot be empty");
+      throw new InvariantViolationError("InvalidInvariant: Category cannot be empty");
     }
 
     const event: BookmarkEvent = {
@@ -201,14 +205,14 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
       case "BookmarkProcessingCompleted":
       case "BookmarkProcessingFailed": {
         if (!state) {
-          throw new Error("Cannot evolve non-existent bookmark state");
+          throw new InvariantViolationError("Cannot evolve non-existent bookmark state");
         }
         return event.payload;
       }
 
       case "BookmarkVisited": {
         if (!state) {
-          throw new Error("Cannot evolve non-existent bookmark state");
+          throw new InvariantViolationError("Cannot evolve non-existent bookmark state");
         }
         return {
           ...state,
@@ -219,7 +223,7 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
 
       case "BookmarkCategorized": {
         if (!state) {
-          throw new Error("Cannot evolve non-existent bookmark state");
+          throw new InvariantViolationError("Cannot evolve non-existent bookmark state");
         }
         return {
           ...state,

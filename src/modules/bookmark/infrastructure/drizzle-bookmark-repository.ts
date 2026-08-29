@@ -3,6 +3,7 @@ import { db } from "~/shared/infrastructure/db/client";
 import { bookmarksTable } from "~/shared/infrastructure/db/schema";
 import { BookmarkState, BookmarkStateSchema, BookmarkStatus } from "../domain/bookmark-schema";
 import { BookmarkRepositoryPort } from "../domain/bookmark-repository-port";
+import { NotFoundError } from "~/shared/domain/errors";
 
 export class DrizzleBookmarkRepository implements BookmarkRepositoryPort {
   async findById(id: string): Promise<BookmarkState | null> {
@@ -57,7 +58,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepositoryPort {
       .returning();
 
     if (rows.length === 0) {
-      throw new Error(`Bookmark not found or unauthorized: ${id}`);
+      throw new NotFoundError(`Bookmark not found or unauthorized: ${id}`);
     }
 
     return this.decodeRow(rows[0]);

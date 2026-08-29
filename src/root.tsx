@@ -1,5 +1,6 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse, useRouteError } from "react-router";
 import href from "./app.css?url";
+import { AlertCircleIcon } from "./shared/ui/icons";
 
 export function links() {
   return [
@@ -53,4 +54,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function Root() {
   return <Outlet />;
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  const isNotFound = isRouteErrorResponse(error) && error.status === 404;
+
+  return (
+    <div className="auth-wrapper">
+      <div className="auth-modal" style={{ textAlign: "center" }}>
+        <div className="auth-icon-header">
+          <div className="auth-lock-circle" style={{ color: "var(--status-danger-text)" }}>
+            <AlertCircleIcon size={22} />
+          </div>
+        </div>
+        <h1 className="auth-heading">{isNotFound ? "Page Not Found" : "Internal error"}</h1>
+        <p className="auth-desc">
+          {isNotFound
+            ? "The page you are looking for does not exist."
+            : "An unexpected error occurred. Please try refreshing the page."}
+        </p>
+        <button
+          type="button"
+          onClick={() => (window.location.href = "/")}
+          className="btn-submit"
+          style={{ width: "100%", marginTop: "0.5rem" }}
+        >
+          {isNotFound ? "Back to Dashboard" : "Reload"}
+        </button>
+      </div>
+    </div>
+  );
 }

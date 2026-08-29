@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { loader, action } from "../dashboard";
 import { AUTH_COOKIE_NAME, DEFAULT_USER_ID } from "~/modules/auth/application/auth-session";
-import { getFolderTreeQuery, markBookmarkVisitedHandler } from "~/shared/infrastructure/container";
+import { getFolderTreeQuery, markBookmarkVisitedHandler, createBookmarkHandler } from "~/shared/infrastructure/container";
+import { InvariantViolationError } from "~/shared/domain/errors";
 
 function extractServerTimingHeader(res: any): string | undefined {
   if (res instanceof Response) {
@@ -110,4 +111,84 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
       bookmarkId: "123e4567-e89b-12d3-a456-426614174000",
     });
   });
+
+  it("should mask uncaught database errors as 'Internal error' when creating bookmark", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(createBookmarkHandler, "execute").mockRejectedValue(
+      new Error("FOREIGN KEY constraint failed: insert into bookmarks")
+    );
+
+    const formData = new FormData();
+    formData.set("intent", "create");
+    formData.set("url", "https://example.com/test");
+
+    const request = new Request("http://localhost:3000/", {
+      method: "POST",
+      headers: {
+        Cookie: authHeader,
+      },
+      body: formData,
+    });
+
+    const response = await action({
+      request,
+      params: {},
+      context: {} as any,
+    } as any);
+
+    const data = extractPayload(response);
+    expect(data).toEqual({ error: "Internal error" });
+    consoleSpy.mockRestore();
+  });
+
+  it("should preserve domain error message when domain invariant fails", async () => {
+    vi.spyOn(createBookmarkHandler, "execute").mockRejectedValue(
+      new InvariantViolationError("Invalid domain state")
+    );
+
+    const formData = new FormData();
+    formData.set("intent", "create");
+    formData.set("url", "https://example.com/test");
+
+    const request = new Request("http://localhost:3000/", {
+      method: "POST",
+      headers: {
+        Cookie: authHeader,
+      },
+      body: formData,
+    });
+
+    const response = await action({
+      request,
+      params: {},
+      context: {} as any,
+    } as any);
+
+    const data = extractPayload(response);
+    expect(data).toEqual({ error: "Invalid domain state" });
+  });
+
+  it("should return validation error for invalid URL", async () => {
+    const formData = new FormData();
+    formData.set("intent", "create");
+    formData.set("url", "not-a-valid-url");
+
+    const request = new Request("http://localhost:3000/", {
+      method: "POST",
+      headers: {
+        Cookie: authHeader,
+      },
+      body: formData,
+    });
+
+    const response = await action({
+      request,
+      params: {},
+      context: {} as any,
+    } as any);
+
+    const data = extractPayload(response);
+    expect(data).toEqual({ error: "A valid URL is required" });
+  });
 });
+
