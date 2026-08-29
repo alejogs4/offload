@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { loader, action } from "../dashboard";
-import { AUTH_COOKIE_NAME, DEFAULT_USER_ID } from "~/modules/auth/application/auth-session";
+import { auth } from "~/shared/infrastructure/auth/auth.server";
 import { getFolderTreeQuery, markBookmarkVisitedHandler, createBookmarkHandler } from "~/shared/infrastructure/container";
 import { InvariantViolationError } from "~/shared/domain/errors";
 
@@ -28,13 +28,34 @@ function extractPayload(res: any): any {
 }
 
 describe("Dashboard Route - Server-Timing & Handlers", () => {
-  const authHeader = `${AUTH_COOKIE_NAME}=true`;
+  const mockUser = {
+    id: "user-tenant-123",
+    name: "Alex User",
+    email: "alex@example.com",
+    emailVerified: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockSession = {
+    id: "session-abc-456",
+    userId: mockUser.id,
+    token: "valid-session-token",
+    expiresAt: new Date(Date.now() + 3600000),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("should return Server-Timing header on authenticated loader requests", async () => {
+  it("should return Server-Timing header on authenticated loader requests and scope by user.id", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({
+      user: mockUser,
+      session: mockSession,
+    } as any);
+
     vi.spyOn(getFolderTreeQuery, "execute").mockResolvedValue({
       pendingFolders: [],
       visitedBookmarks: [],
@@ -43,7 +64,7 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
 
     const request = new Request("http://localhost:3000/", {
       headers: {
-        Cookie: authHeader,
+        Cookie: "better-auth.session_token=valid-session-token",
       },
     });
 
@@ -60,9 +81,12 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
 
     const data = extractPayload(response);
     expect(data).toHaveProperty("folderTree");
+    expect(getFolderTreeQuery.execute).toHaveBeenCalledWith(mockUser.id);
   });
 
   it("should redirect unauthenticated loader requests to /login", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue(null);
+
     const request = new Request("http://localhost:3000/", {
       headers: {},
     });
@@ -78,7 +102,11 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
     expect(response.headers.get("Location")).toBe("/login");
   });
 
-  it("should return Server-Timing header on mark_visited action execution", async () => {
+  it("should return Server-Timing header on mark_visited action execution with session user.id", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({
+      user: mockUser,
+      session: mockSession,
+    } as any);
     vi.spyOn(markBookmarkVisitedHandler, "execute").mockResolvedValue(undefined);
 
     const formData = new FormData();
@@ -88,7 +116,7 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
     const request = new Request("http://localhost:3000/", {
       method: "POST",
       headers: {
-        Cookie: authHeader,
+        Cookie: "better-auth.session_token=valid-session-token",
       },
       body: formData,
     });
@@ -107,12 +135,51 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
     const data = extractPayload(response);
     expect(data).toEqual({ success: true });
     expect(markBookmarkVisitedHandler.execute).toHaveBeenCalledWith({
-      userId: DEFAULT_USER_ID,
+      userId: mockUser.id,
       bookmarkId: "123e4567-e89b-12d3-a456-426614174000",
     });
   });
 
+  it("should create bookmark scoped to authenticated session user.id", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({
+      user: mockUser,
+      session: mockSession,
+    } as any);
+    vi.spyOn(createBookmarkHandler, "execute").mockResolvedValue({
+      id: "new-bmk-1",
+    } as any);
+
+    const formData = new FormData();
+    formData.set("intent", "create");
+    formData.set("url", "https://example.com/article");
+
+    const request = new Request("http://localhost:3000/", {
+      method: "POST",
+      headers: {
+        Cookie: "better-auth.session_token=valid-session-token",
+      },
+      body: formData,
+    });
+
+    const response = await action({
+      request,
+      params: {},
+      context: {} as any,
+    } as any);
+
+    const data = extractPayload(response);
+    expect(data).toEqual({ success: true, bookmarkId: "new-bmk-1" });
+    expect(createBookmarkHandler.execute).toHaveBeenCalledWith({
+      userId: mockUser.id,
+      url: "https://example.com/article",
+    });
+  });
+
   it("should mask uncaught database errors as 'Internal error' when creating bookmark", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({
+      user: mockUser,
+      session: mockSession,
+    } as any);
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(createBookmarkHandler, "execute").mockRejectedValue(
       new Error("FOREIGN KEY constraint failed: insert into bookmarks")
@@ -125,7 +192,7 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
     const request = new Request("http://localhost:3000/", {
       method: "POST",
       headers: {
-        Cookie: authHeader,
+        Cookie: "better-auth.session_token=valid-session-token",
       },
       body: formData,
     });
@@ -142,6 +209,10 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
   });
 
   it("should preserve domain error message when domain invariant fails", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({
+      user: mockUser,
+      session: mockSession,
+    } as any);
     vi.spyOn(createBookmarkHandler, "execute").mockRejectedValue(
       new InvariantViolationError("Invalid domain state")
     );
@@ -153,7 +224,7 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
     const request = new Request("http://localhost:3000/", {
       method: "POST",
       headers: {
-        Cookie: authHeader,
+        Cookie: "better-auth.session_token=valid-session-token",
       },
       body: formData,
     });
@@ -169,6 +240,10 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
   });
 
   it("should return validation error for invalid URL", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({
+      user: mockUser,
+      session: mockSession,
+    } as any);
     const formData = new FormData();
     formData.set("intent", "create");
     formData.set("url", "not-a-valid-url");
@@ -176,7 +251,7 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
     const request = new Request("http://localhost:3000/", {
       method: "POST",
       headers: {
-        Cookie: authHeader,
+        Cookie: "better-auth.session_token=valid-session-token",
       },
       body: formData,
     });
