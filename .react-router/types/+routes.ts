@@ -17,7 +17,15 @@ type Pages = {
   "/login": {
     params: {};
   };
+  "/api/auth/*": {
+    params: {
+      "*": string;
+    };
+  };
   "/favicon.ico": {
+    params: {};
+  };
+  "/migrations": {
     params: {};
   };
 };
@@ -25,25 +33,50 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/favicon.ico";
+    page: "/" | "/login" | "/api/auth/*" | "/favicon.ico" | "/migrations";
   };
   "routes/login.tsx": {
     id: "routes/login";
     page: "/login";
   };
+  "routes/api.auth.$.ts": {
+    id: "routes/api.auth.$";
+    page: "/api/auth/*";
+  };
   "routes/favicon.ico.ts": {
     id: "routes/favicon.ico";
     page: "/favicon.ico";
   };
+  "routes/_authenticated.tsx": {
+    id: "routes/_authenticated";
+    page: "/";
+  };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
     page: "/";
+  };
+  "routes/admin.tsx": {
+    id: "routes/admin";
+    page: "/" | "/migrations";
+  };
+  "routes/admin._index.tsx": {
+    id: "routes/admin._index";
+    page: "/";
+  };
+  "routes/admin.migrations.tsx": {
+    id: "routes/admin.migrations";
+    page: "/migrations";
   };
 };
 
 type RouteModules = {
   "root": typeof import("./src/root.tsx");
   "routes/login": typeof import("./src/routes/login.tsx");
+  "routes/api.auth.$": typeof import("./src/routes/api.auth.$.ts");
   "routes/favicon.ico": typeof import("./src/routes/favicon.ico.ts");
+  "routes/_authenticated": typeof import("./src/routes/_authenticated.tsx");
   "routes/dashboard": typeof import("./src/routes/dashboard.tsx");
+  "routes/admin": typeof import("./src/routes/admin.tsx");
+  "routes/admin._index": typeof import("./src/routes/admin._index.tsx");
+  "routes/admin.migrations": typeof import("./src/routes/admin.migrations.tsx");
 };
