@@ -26,11 +26,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
   }
 
-  return { error: errorMessage };
+  const configuredProviders = {
+    github: !!process.env.GITHUB_CLIENT_ID,
+    google: !!process.env.GOOGLE_CLIENT_ID,
+  };
+
+  return { error: errorMessage, configuredProviders };
 }
 
 export default function LoginRoute() {
-  const { error: initialError } = useLoaderData<typeof loader>();
+  const { error: initialError, configuredProviders } = useLoaderData<typeof loader>();
   const [loadingProvider, setLoadingProvider] = useState<"github" | "google" | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialError);
 
@@ -39,10 +44,30 @@ export default function LoginRoute() {
     setErrorMessage(null);
 
     try {
-      await authClient.signIn.social({
+      const response = await authClient.signIn.social({
         provider,
         callbackURL: "/",
       });
+
+      if (response?.error) {
+        const error = response.error;
+        const msg =
+          error.code === "PROVIDER_NOT_FOUND" || error.status === 404
+            ? `${provider === "github" ? "GitHub" : "Google"} OAuth is not configured. Set ${
+                provider === "github"
+                  ? "GITHUB_CLIENT_ID & GITHUB_CLIENT_SECRET"
+                  : "GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET"
+              } in your environment.`
+            : error.message || `Failed to sign in with ${provider}.`;
+
+        setErrorMessage(msg);
+        setLoadingProvider(null);
+        return;
+      }
+
+      if (response?.data?.url && typeof window !== "undefined") {
+        window.location.href = response.data.url;
+      }
     } catch (err: any) {
       setErrorMessage(err?.message || "Failed to initiate sign-in. Please try again.");
       setLoadingProvider(null);
@@ -101,6 +126,20 @@ export default function LoginRoute() {
             <span>{loadingProvider === "google" ? "Signing in..." : "Continue with Google"}</span>
           </button>
         </div>
+
+        {!configuredProviders?.github && !configuredProviders?.google && (
+          <p
+            style={{
+              fontSize: "0.75rem",
+              color: "var(--ink-secondary)",
+              textAlign: "center",
+              marginTop: "1.25rem",
+              lineHeight: 1.4,
+            }}
+          >
+            OAuth credentials not detected in <code>.env</code>. Configure <code>GITHUB_CLIENT_ID</code> or <code>GOOGLE_CLIENT_ID</code> to enable sign-in.
+          </p>
+        )}
       </div>
     </div>
   );
