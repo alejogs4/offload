@@ -22,9 +22,9 @@ describe("Better-Auth Server Configuration & Schema Mapping", () => {
     expect(auth.options.session?.expiresIn).toBe(60 * 60 * 24 * 30);
   });
 
-  it("should adhere to user constraint: NO image column in user schema", () => {
+  it("should define standard Better-Auth user schema columns including image", () => {
     const userColumns = Object.keys(user);
-    expect(userColumns).not.toContain("image");
+    expect(userColumns).toContain("image");
     expect(userColumns).toContain("id");
     expect(userColumns).toContain("email");
     expect(userColumns).toContain("name");

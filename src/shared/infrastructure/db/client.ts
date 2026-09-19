@@ -37,6 +37,7 @@ if (url.startsWith("file:")) {
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         email_verified INTEGER NOT NULL DEFAULT 0,
+        image TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
