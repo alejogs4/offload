@@ -47,6 +47,7 @@ export default function LoginRoute() {
       const response = await authClient.signIn.social({
         provider,
         callbackURL: "/",
+        errorCallbackURL: "/login",
       });
 
       if (response?.error) {

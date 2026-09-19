@@ -65,7 +65,8 @@ if (url.startsWith("file:")) {
         scope TEXT,
         password TEXT,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        issuer TEXT
       );
 
       CREATE TABLE IF NOT EXISTS verification (

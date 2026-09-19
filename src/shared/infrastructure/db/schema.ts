@@ -44,6 +44,7 @@ export const account = sqliteTable("account", {
   password: text("password"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  issuer: text("issuer"),
 });
 
 export const verification = sqliteTable("verification", {
