@@ -25,12 +25,15 @@ type Pages = {
   "/favicon.ico": {
     params: {};
   };
+  "/migrations": {
+    params: {};
+  };
 };
 
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/api/auth/*" | "/favicon.ico";
+    page: "/" | "/login" | "/api/auth/*" | "/favicon.ico" | "/migrations";
   };
   "routes/login.tsx": {
     id: "routes/login";
@@ -52,6 +55,18 @@ type RouteFiles = {
     id: "routes/dashboard";
     page: "/";
   };
+  "routes/admin.tsx": {
+    id: "routes/admin";
+    page: "/" | "/migrations";
+  };
+  "routes/admin._index.tsx": {
+    id: "routes/admin._index";
+    page: "/";
+  };
+  "routes/admin.migrations.tsx": {
+    id: "routes/admin.migrations";
+    page: "/migrations";
+  };
 };
 
 type RouteModules = {
@@ -61,4 +76,7 @@ type RouteModules = {
   "routes/favicon.ico": typeof import("./src/routes/favicon.ico.ts");
   "routes/_authenticated": typeof import("./src/routes/_authenticated.tsx");
   "routes/dashboard": typeof import("./src/routes/dashboard.tsx");
+  "routes/admin": typeof import("./src/routes/admin.tsx");
+  "routes/admin._index": typeof import("./src/routes/admin._index.tsx");
+  "routes/admin.migrations": typeof import("./src/routes/admin.migrations.tsx");
 };
