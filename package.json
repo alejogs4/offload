@@ -20,7 +20,6 @@
     "@vercel/functions": "^3.9.3",
     "ai": "^4.1.20",
     "better-auth": "^1.7.2",
-    "better-sqlite3": "^11.8.0",
     "cheerio": "^1.0.0",
     "drizzle-orm": "^0.38.4",
     "isbot": "^5",
@@ -33,7 +32,6 @@
   },
   "devDependencies": {
     "@react-router/dev": "^7.1.5",
-    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.10",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
