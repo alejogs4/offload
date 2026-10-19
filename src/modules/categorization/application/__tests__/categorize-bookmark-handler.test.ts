@@ -18,6 +18,7 @@ describe("CategorizeBookmarkHandler", () => {
       category: DefaultTaxonomy.CATEGORY,
       subcategory: DefaultTaxonomy.SUBCATEGORY,
       status: BookmarkStatus.PENDING,
+      isStarred: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -28,6 +29,7 @@ describe("CategorizeBookmarkHandler", () => {
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
       markAsVisited: vi.fn(),
+      toggleStarred: vi.fn(),
     };
 
     const mockCategorizer = {

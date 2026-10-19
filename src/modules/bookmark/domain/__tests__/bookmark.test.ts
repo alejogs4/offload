@@ -217,4 +217,58 @@ describe("Bookmark Aggregate & Domain Invariants", () => {
       });
     }).toThrow(/Cannot complete processing for a visited bookmark/);
   });
+
+  it("should initialize isStarred to false on create and createProcessing", () => {
+    const { evolved: created } = bookmark.create({
+      userId: "user-1",
+      url: "https://example.com",
+      title: "Created",
+      description: "Desc",
+    });
+    expect(created.isStarred).toBe(false);
+
+    const { evolved: processing } = bookmark.createProcessing({
+      userId: "user-1",
+      url: "https://example.com",
+    });
+    expect(processing.isStarred).toBe(false);
+  });
+
+  it("should toggle isStarred and produce BookmarkStarredToggled event without mutating category/subcategory", () => {
+    const { evolved: initialState } = bookmark.create({
+      id: "123e4567-e89b-12d3-a456-426614174000",
+      userId: "user-1",
+      url: "https://example.com",
+      title: "Example Title",
+      description: "Example Description",
+      category: "Engineering",
+      subcategory: "Architecture",
+    });
+
+    const { event: starEvent, evolved: starredState } = bookmark.toggleStarred(initialState, "user-1", true);
+    expect(starEvent.type).toBe("BookmarkStarredToggled");
+    expect(starredState.isStarred).toBe(true);
+    expect(starredState.category).toBe("Engineering");
+    expect(starredState.subcategory).toBe("Architecture");
+
+    const { event: unstarEvent, evolved: unstarredState } = bookmark.toggleStarred(starredState, "user-1", false);
+    expect(unstarEvent.type).toBe("BookmarkStarredToggled");
+    expect(unstarredState.isStarred).toBe(false);
+    expect(unstarredState.category).toBe("Engineering");
+    expect(unstarredState.subcategory).toBe("Architecture");
+  });
+
+  it("should throw UnauthorizedError if another user tries to toggleStarred", () => {
+    const { evolved: state } = bookmark.create({
+      id: "123e4567-e89b-12d3-a456-426614174000",
+      userId: "owner-user",
+      url: "https://example.com",
+      title: "Example Title",
+      description: "Example Description",
+    });
+
+    expect(() => {
+      bookmark.toggleStarred(state, "other-user", true);
+    }).toThrow(/Unauthorized/);
+  });
 });

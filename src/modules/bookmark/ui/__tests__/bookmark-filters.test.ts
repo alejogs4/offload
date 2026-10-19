@@ -28,6 +28,7 @@ describe("bookmark-filters", () => {
       category: "Development",
       subcategory: "React",
       status: BookmarkStatus.PENDING,
+      isStarred: false,
       createdAt: "2026-01-01T00:00:00Z",
     };
 
@@ -69,6 +70,7 @@ describe("bookmark-filters", () => {
                 category: "Tech",
                 subcategory: "Frontend",
                 status: BookmarkStatus.PENDING,
+                isStarred: false,
                 createdAt: "2026-01-01",
               },
               {
@@ -79,6 +81,7 @@ describe("bookmark-filters", () => {
                 category: "Tech",
                 subcategory: "Frontend",
                 status: BookmarkStatus.PENDING,
+                isStarred: false,
                 createdAt: "2026-01-01",
               },
             ],
@@ -94,6 +97,7 @@ describe("bookmark-filters", () => {
                 category: "Tech",
                 subcategory: "Backend",
                 status: BookmarkStatus.PENDING,
+                isStarred: false,
                 createdAt: "2026-01-01",
               },
             ],
@@ -114,6 +118,7 @@ describe("bookmark-filters", () => {
                 category: "Design",
                 subcategory: "Inspiration",
                 status: BookmarkStatus.PENDING,
+                isStarred: false,
                 createdAt: "2026-01-01",
               },
             ],
@@ -166,6 +171,7 @@ describe("bookmark-filters", () => {
         category: "Tech",
         subcategory: "Languages",
         status: BookmarkStatus.VISITED,
+        isStarred: false,
         createdAt: "2026-01-01",
       },
       {
@@ -176,6 +182,7 @@ describe("bookmark-filters", () => {
         category: "Design",
         subcategory: "Design Systems",
         status: BookmarkStatus.VISITED,
+        isStarred: false,
         createdAt: "2026-01-01",
       },
     ];
@@ -192,21 +199,23 @@ describe("bookmark-filters", () => {
   });
 
   describe("extractTopLevelCategories", () => {
-    it("should extract unique sorted categories from pending folders", () => {
+    it("should extract unique sorted categories from pending folders and pin Starred first", () => {
       const pending: CategoryGroupDTO[] = [
         { name: "Tech", subcategories: [] },
+        { name: "Starred", isFlat: true, subcategories: [] },
+        { name: "Architecture", subcategories: [] },
         { name: "Design", subcategories: [] },
         { name: "Tech", subcategories: [] },
       ];
       const categories = extractTopLevelCategories(pending, [], BookmarkStatus.PENDING);
-      expect(categories).toEqual(["Design", "Tech"]);
+      expect(categories).toEqual(["Starred", "Architecture", "Design", "Tech"]);
     });
 
     it("should extract unique sorted categories from visited bookmarks", () => {
       const visited: BookmarkItemDTO[] = [
-        { id: "1", title: "A", description: "", url: "", category: "Product", subcategory: "", status: BookmarkStatus.VISITED, createdAt: "" },
-        { id: "2", title: "B", description: "", url: "", category: "Architecture", subcategory: "", status: BookmarkStatus.VISITED, createdAt: "" },
-        { id: "3", title: "C", description: "", url: "", category: "Product", subcategory: "", status: BookmarkStatus.VISITED, createdAt: "" },
+        { id: "1", title: "A", description: "", url: "", category: "Product", subcategory: "", status: BookmarkStatus.VISITED, isStarred: false, createdAt: "" },
+        { id: "2", title: "B", description: "", url: "", category: "Architecture", subcategory: "", status: BookmarkStatus.VISITED, isStarred: false, createdAt: "" },
+        { id: "3", title: "C", description: "", url: "", category: "Product", subcategory: "", status: BookmarkStatus.VISITED, isStarred: false, createdAt: "" },
       ];
       const categories = extractTopLevelCategories([], visited, BookmarkStatus.VISITED);
       expect(categories).toEqual(["Architecture", "Product"]);

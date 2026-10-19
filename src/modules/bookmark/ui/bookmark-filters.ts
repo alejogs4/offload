@@ -1,4 +1,8 @@
-import type { CategoryGroupDTO, BookmarkItemDTO } from "~/modules/categorization/application/get-folder-tree-query";
+import {
+  STARRED_CATEGORY_NAME,
+  type CategoryGroupDTO,
+  type BookmarkItemDTO,
+} from "~/modules/categorization/application/get-folder-tree-query";
 import { BookmarkStatus } from "~/modules/bookmark/domain/bookmark-schema";
 
 export interface FilterCriteria {
@@ -102,6 +106,7 @@ export function countPendingBookmarks(folders: CategoryGroupDTO[]): number {
 
 /**
  * Extracts unique top-level categories based on the currently active tab or collection.
+ * Keeps the pinned "Starred" category at index 0 when present.
  */
 export function extractTopLevelCategories(
   pendingFolders: CategoryGroupDTO[],
@@ -124,5 +129,9 @@ export function extractTopLevelCategories(
     }
   }
 
-  return Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+  return Array.from(categorySet).sort((a, b) => {
+    if (a === STARRED_CATEGORY_NAME) return -1;
+    if (b === STARRED_CATEGORY_NAME) return 1;
+    return a.localeCompare(b);
+  });
 }

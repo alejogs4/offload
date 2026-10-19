@@ -30,10 +30,12 @@ describe("DrizzleBookmarkRepository", () => {
         category TEXT NOT NULL DEFAULT 'General',
         subcategory TEXT NOT NULL DEFAULT 'Reading',
         status TEXT NOT NULL DEFAULT 'PENDING',
+        is_starred INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
     `);
+    await client.execute("ALTER TABLE bookmarks ADD COLUMN is_starred INTEGER NOT NULL DEFAULT 0;").catch(() => {});
     await client.execute({
       sql: "INSERT OR IGNORE INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
       args: [userId, "Test User", "test-drizzle@example.com", 1, Date.now(), Date.now()],
@@ -55,6 +57,7 @@ describe("DrizzleBookmarkRepository", () => {
       category: "Engineering",
       subcategory: "Database",
       status: BookmarkStatus.PENDING,
+      isStarred: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -69,6 +72,32 @@ describe("DrizzleBookmarkRepository", () => {
     // Verify persisted in database
     const fetched = await repository.findById(bookmark.id);
     expect(fetched?.status).toBe(BookmarkStatus.VISITED);
+  });
+
+  it("should atomically toggle isStarred using RETURNING *", async () => {
+    const bookmark: BookmarkState = {
+      id: "33333333-3333-4333-8333-333333333333",
+      userId,
+      url: "https://example.com/star-test",
+      title: "Star SQL Test",
+      description: "Testing star toggle",
+      ogImage: undefined,
+      category: "Engineering",
+      subcategory: "Database",
+      status: BookmarkStatus.PENDING,
+      isStarred: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await repository.save(bookmark);
+
+    const starred = await repository.toggleStarred(bookmark.id, userId, true);
+    expect(starred.isStarred).toBe(true);
+    expect(starred.category).toBe("Engineering");
+
+    const unstarred = await repository.toggleStarred(bookmark.id, userId, false);
+    expect(unstarred.isStarred).toBe(false);
   });
 
   it("should throw an error when marking a non-existent or unauthorized bookmark", async () => {

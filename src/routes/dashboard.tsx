@@ -3,7 +3,12 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useState, useEffect, useRef } from "react";
 import { z } from "zod";
 import { auth } from "~/shared/infrastructure/auth/auth.server";
-import { getFolderTreeQuery, createBookmarkHandler, markBookmarkVisitedHandler } from "~/shared/infrastructure/container";
+import {
+  getFolderTreeQuery,
+  createBookmarkHandler,
+  markBookmarkVisitedHandler,
+  toggleBookmarkStarredHandler,
+} from "~/shared/infrastructure/container";
 import { withServerTiming } from "~/shared/infrastructure/telemetry/server-timing";
 import { toUserErrorMessage } from "~/shared/domain/errors";
 import { BookmarkStatus } from "~/modules/bookmark/domain/bookmark-status";
@@ -22,6 +27,13 @@ const CreateActionSchema = z.object({
 
 const MarkVisitedActionSchema = z.object({
   bookmarkId: z.string().uuid({ message: "A valid Bookmark ID is required" }),
+});
+
+const ToggleStarredActionSchema = z.object({
+  bookmarkId: z.string().uuid({ message: "A valid Bookmark ID is required" }),
+  isStarred: z
+    .enum(["true", "false"], { message: "isStarred must be 'true' or 'false'" })
+    .transform((val) => val === "true"),
 });
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -109,6 +121,31 @@ export async function action({ request }: ActionFunctionArgs) {
           await markBookmarkVisitedHandler.execute({
             userId: session.user.id,
             bookmarkId: parsed.data.bookmarkId,
+          });
+          return { redirect: false as const, response: { success: true } };
+        } catch (err: unknown) {
+          return { redirect: false as const, response: { error: toUserErrorMessage(err, "Internal error") } };
+        }
+      }
+
+      if (intent === "toggle_starred") {
+        const parsed = ToggleStarredActionSchema.safeParse({
+          bookmarkId: formData.get("bookmarkId")?.toString(),
+          isStarred: formData.get("isStarred")?.toString(),
+        });
+
+        if (!parsed.success) {
+          return {
+            redirect: false as const,
+            response: { error: parsed.error.issues[0]?.message || "Invalid Bookmark ID" },
+          };
+        }
+
+        try {
+          await toggleBookmarkStarredHandler.execute({
+            userId: session.user.id,
+            bookmarkId: parsed.data.bookmarkId,
+            isStarred: parsed.data.isStarred,
           });
           return { redirect: false as const, response: { success: true } };
         } catch (err: unknown) {

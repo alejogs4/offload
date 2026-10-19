@@ -15,6 +15,7 @@ const mockBookmark: BookmarkState = {
   category: "General",
   subcategory: "Reading",
   status: BookmarkStatus.PENDING,
+  isStarred: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -29,6 +30,7 @@ describe("MarkBookmarkVisitedCommandHandler", () => {
         ...mockBookmark,
         status: BookmarkStatus.VISITED,
       }),
+      toggleStarred: vi.fn(),
       findAllByUserId: vi.fn(),
     };
 
@@ -68,6 +70,7 @@ describe("MarkBookmarkVisitedCommandHandler", () => {
       save: vi.fn(),
       update: vi.fn(),
       markAsVisited: vi.fn(),
+      toggleStarred: vi.fn(),
       findAllByUserId: vi.fn(),
     };
     const eventBus: EventBusPort = {
@@ -94,6 +97,7 @@ describe("MarkBookmarkVisitedCommandHandler", () => {
       save: vi.fn(),
       update: vi.fn(),
       markAsVisited: vi.fn().mockRejectedValue(new Error("Bookmark not found or unauthorized")),
+      toggleStarred: vi.fn(),
       findAllByUserId: vi.fn(),
     };
     const eventBus: EventBusPort = {

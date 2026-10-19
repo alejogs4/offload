@@ -1,10 +1,16 @@
 import React from "react";
 import { useFetcher, useFetchers } from "react-router";
-import type { CategoryGroupDTO, BookmarkItemDTO } from "~/modules/categorization/application/get-folder-tree-query";
+import {
+  STARRED_CATEGORY_NAME,
+  type CategoryGroupDTO,
+  type BookmarkItemDTO,
+} from "~/modules/categorization/application/get-folder-tree-query";
+import { DefaultTaxonomy } from "~/modules/bookmark/domain/bookmark-schema";
 import {
   FolderIcon,
   SubFolderIcon,
   CheckIcon,
+  StarIcon,
   ExternalLinkIcon,
   GlobeIcon,
   InboxIcon,
@@ -40,6 +46,127 @@ export function useInFlightVisitedIds(): Set<string> {
   return inFlightIds;
 }
 
+/**
+ * Extracts a map of bookmarkId -> optimistic `isStarred` boolean from active
+ * React Router fetchers with `intent === "toggle_starred"`.
+ */
+export function useInFlightStarredOverrides(): Map<string, boolean> {
+  const fetchers = useFetchers();
+  const overrides = new Map<string, boolean>();
+
+  for (const fetcher of fetchers) {
+    if (fetcher.formData?.get("intent") === "toggle_starred") {
+      const bookmarkId = fetcher.formData.get("bookmarkId")?.toString();
+      const isStarredRaw = fetcher.formData.get("isStarred")?.toString();
+      if (bookmarkId && (isStarredRaw === "true" || isStarredRaw === "false")) {
+        overrides.set(bookmarkId, isStarredRaw === "true");
+      }
+    }
+  }
+
+  return overrides;
+}
+
+/**
+ * Applies optimistic visited removals and optimistic star/unstar transitions
+ * so newly starred items immediately appear in the pinned "Starred" category at index 0
+ * and unstarred items return to their original category/subcategory.
+ */
+export function buildOptimisticVisibleFolders(
+  pendingFolders: CategoryGroupDTO[],
+  inFlightVisitedIds: Set<string>,
+  inFlightStarredOverrides: Map<string, boolean>
+): Array<CategoryGroupDTO & { totalItems: number }> {
+  if (inFlightStarredOverrides.size === 0) {
+    return pendingFolders
+      .map((category) => {
+        const visibleSubcategories = category.subcategories
+          .map((sub) => ({
+            ...sub,
+            bookmarks: sub.bookmarks.filter((b) => !inFlightVisitedIds.has(b.id)),
+          }))
+          .filter((sub) => sub.bookmarks.length > 0);
+
+        return {
+          ...category,
+          subcategories: visibleSubcategories,
+          totalItems: visibleSubcategories.reduce((acc, sub) => acc + sub.bookmarks.length, 0),
+        };
+      })
+      .filter((category) => category.totalItems > 0);
+  }
+
+  const starredBookmarks: BookmarkItemDTO[] = [];
+  const categoryMap = new Map<string, Map<string, BookmarkItemDTO[]>>();
+
+  // Preserve existing category order for non-Starred categories
+  for (const folder of pendingFolders) {
+    if (folder.name !== STARRED_CATEGORY_NAME) {
+      categoryMap.set(folder.name, new Map());
+    }
+  }
+
+  for (const folder of pendingFolders) {
+    for (const sub of folder.subcategories) {
+      for (const rawBookmark of sub.bookmarks) {
+        if (inFlightVisitedIds.has(rawBookmark.id)) continue;
+
+        const effectiveStarred = inFlightStarredOverrides.has(rawBookmark.id)
+          ? inFlightStarredOverrides.get(rawBookmark.id)!
+          : rawBookmark.isStarred;
+
+        const bookmark: BookmarkItemDTO =
+          effectiveStarred === rawBookmark.isStarred
+            ? rawBookmark
+            : { ...rawBookmark, isStarred: effectiveStarred };
+
+        if (bookmark.isStarred) {
+          starredBookmarks.push(bookmark);
+        } else {
+          const catName = bookmark.category || DefaultTaxonomy.CATEGORY;
+          const subName = bookmark.subcategory || DefaultTaxonomy.SUBCATEGORY;
+          if (!categoryMap.has(catName)) {
+            categoryMap.set(catName, new Map());
+          }
+          const subMap = categoryMap.get(catName)!;
+          if (!subMap.has(subName)) {
+            subMap.set(subName, []);
+          }
+          subMap.get(subName)!.push(bookmark);
+        }
+      }
+    }
+  }
+
+  const result: Array<CategoryGroupDTO & { totalItems: number }> = [];
+
+  if (starredBookmarks.length > 0) {
+    result.push({
+      name: STARRED_CATEGORY_NAME,
+      isFlat: true,
+      subcategories: [{ name: "", bookmarks: starredBookmarks }],
+      totalItems: starredBookmarks.length,
+    });
+  }
+
+  for (const [catName, subMap] of categoryMap.entries()) {
+    const subcategories = Array.from(subMap.entries())
+      .map(([subName, bookmarks]) => ({ name: subName, bookmarks }))
+      .filter((sub) => sub.bookmarks.length > 0);
+
+    const totalItems = subcategories.reduce((acc, sub) => acc + sub.bookmarks.length, 0);
+    if (totalItems > 0) {
+      result.push({
+        name: catName,
+        subcategories,
+        totalItems,
+      });
+    }
+  }
+
+  return result;
+}
+
 interface PendingChecklistViewProps {
   pendingFolders: CategoryGroupDTO[];
   processingCount?: number;
@@ -50,23 +177,41 @@ interface PendingChecklistViewProps {
 }
 
 function PendingBookmarkItem({ bookmark }: { bookmark: BookmarkItemDTO }) {
-  const fetcher = useFetcher({ key: `mark-visited-${bookmark.id}` });
+  const visitFetcher = useFetcher({ key: `mark-visited-${bookmark.id}` });
+  const starFetcher = useFetcher({ key: `toggle-starred-${bookmark.id}` });
 
   return (
     <div key={bookmark.id} className="checklist-item">
-      {/* Complete Action Button */}
-      <fetcher.Form method="post" className="checkbox-action-wrapper">
-        <input type="hidden" name="intent" value="mark_visited" />
-        <input type="hidden" name="bookmarkId" value={bookmark.id} />
-        <button
-          type="submit"
-          className="custom-checkbox-btn"
-          title="Mark as visited & move to archive"
-          aria-label={`Mark ${bookmark.title} as visited`}
-        >
-          <CheckIcon size={14} />
-        </button>
-      </fetcher.Form>
+      {/* Complete & Star Action Buttons */}
+      <div className="item-actions-group">
+        <visitFetcher.Form method="post" className="checkbox-action-wrapper">
+          <input type="hidden" name="intent" value="mark_visited" />
+          <input type="hidden" name="bookmarkId" value={bookmark.id} />
+          <button
+            type="submit"
+            className="custom-checkbox-btn"
+            title="Mark as visited & move to archive"
+            aria-label={`Mark ${bookmark.title} as visited`}
+          >
+            <CheckIcon size={14} />
+          </button>
+        </visitFetcher.Form>
+
+        <starFetcher.Form method="post" className="star-action-wrapper">
+          <input type="hidden" name="intent" value="toggle_starred" />
+          <input type="hidden" name="bookmarkId" value={bookmark.id} />
+          <input type="hidden" name="isStarred" value={String(!bookmark.isStarred)} />
+          <button
+            type="submit"
+            className={`star-action-btn ${bookmark.isStarred ? "starred" : ""}`}
+            title={bookmark.isStarred ? "Remove from Starred" : "Star to pin at top"}
+            aria-label={bookmark.isStarred ? `Unstar ${bookmark.title}` : `Star ${bookmark.title}`}
+            aria-pressed={bookmark.isStarred}
+          >
+            <StarIcon size={15} filled={bookmark.isStarred} />
+          </button>
+        </starFetcher.Form>
+      </div>
 
       {/* Thumbnail / Favicon */}
       <div className="item-media-container">
@@ -135,24 +280,14 @@ export function PendingChecklistView({
   onClearFilters,
 }: PendingChecklistViewProps) {
   const inFlightVisitedIds = useInFlightVisitedIds();
+  const inFlightStarredOverrides = useInFlightStarredOverrides();
 
-  // Optimistically filter bookmarks and prune empty categories/subcategories
-  const visibleFolders = pendingFolders
-    .map((category) => {
-      const visibleSubcategories = category.subcategories
-        .map((sub) => ({
-          ...sub,
-          bookmarks: sub.bookmarks.filter((b) => !inFlightVisitedIds.has(b.id)),
-        }))
-        .filter((sub) => sub.bookmarks.length > 0);
-
-      return {
-        ...category,
-        subcategories: visibleSubcategories,
-        totalItems: visibleSubcategories.reduce((acc, sub) => acc + sub.bookmarks.length, 0),
-      };
-    })
-    .filter((category) => category.totalItems > 0);
+  // Optimistically filter bookmarks, apply star/unstar overrides, and prune empty groups
+  const visibleFolders = buildOptimisticVisibleFolders(
+    pendingFolders,
+    inFlightVisitedIds,
+    inFlightStarredOverrides
+  );
 
   if (visibleFolders.length === 0 && processingCount === 0) {
     if (isFiltered) {
@@ -195,9 +330,12 @@ export function PendingChecklistView({
     <div>
       {visibleFolders.map((category) => {
         const isExpanded = expandedCategories[category.name] ?? true;
+        const isStarredCategory =
+          category.name === STARRED_CATEGORY_NAME || Boolean(category.isFlat);
+
         return (
           <div key={category.name} className="category-group">
-            <div className="category-card">
+            <div className={`category-card ${isStarredCategory ? "starred-category-card" : ""}`}>
               {/* Collapsible Category Header */}
               <button
                 type="button"
@@ -206,7 +344,11 @@ export function PendingChecklistView({
                 aria-expanded={isExpanded}
               >
                 <div className="category-title-wrap">
-                  <FolderIcon className="category-icon" size={18} />
+                  {isStarredCategory ? (
+                    <StarIcon className="category-icon starred-category-icon" size={18} filled />
+                  ) : (
+                    <FolderIcon className="category-icon" size={18} />
+                  )}
                   <span>{category.name}</span>
                 </div>
                 <div className="category-header-right">
@@ -220,23 +362,35 @@ export function PendingChecklistView({
                 </div>
               </button>
 
-              {/* Subcategories body */}
+              {/* Category body: flat checklist for Starred, nested subcategories for regular categories */}
               {isExpanded && (
                 <div className="category-card-body">
-                  {category.subcategories.map((sub) => (
-                    <div key={sub.name} className="subcategory-block">
-                      <div className="subcategory-label">
-                        <SubFolderIcon size={14} />
-                        <span>{sub.name}</span>
-                      </div>
-
+                  {isStarredCategory ? (
+                    <div className="subcategory-block starred-flat-block">
                       <div className="checklist-list">
-                        {sub.bookmarks.map((bookmark) => (
-                          <PendingBookmarkItem key={bookmark.id} bookmark={bookmark} />
-                        ))}
+                        {category.subcategories
+                          .flatMap((sub) => sub.bookmarks)
+                          .map((bookmark) => (
+                            <PendingBookmarkItem key={bookmark.id} bookmark={bookmark} />
+                          ))}
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    category.subcategories.map((sub) => (
+                      <div key={sub.name} className="subcategory-block">
+                        <div className="subcategory-label">
+                          <SubFolderIcon size={14} />
+                          <span>{sub.name}</span>
+                        </div>
+
+                        <div className="checklist-list">
+                          {sub.bookmarks.map((bookmark) => (
+                            <PendingBookmarkItem key={bookmark.id} bookmark={bookmark} />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>

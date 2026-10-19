@@ -84,6 +84,7 @@ export const bookmarksTable = sqliteTable(
     })
       .notNull()
       .default(BookmarkStatus.PENDING),
+    isStarred: integer("is_starred", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },

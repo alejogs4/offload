@@ -89,6 +89,7 @@ if (url.startsWith("file:")) {
         category TEXT NOT NULL DEFAULT '${DefaultTaxonomy.CATEGORY}',
         subcategory TEXT NOT NULL DEFAULT '${DefaultTaxonomy.SUBCATEGORY}',
         status TEXT NOT NULL DEFAULT '${BookmarkStatus.PENDING}',
+        is_starred INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
@@ -97,7 +98,33 @@ if (url.startsWith("file:")) {
       CREATE INDEX IF NOT EXISTS bookmarks_user_id_idx ON bookmarks(user_id);
       CREATE INDEX IF NOT EXISTS bookmarks_user_id_status_idx ON bookmarks(user_id, status);
     `)
+    .then(() => ensureBookmarksStarredColumn())
     .catch((err) => {
       console.warn("[DB Client] Fallback schema init:", err.message);
     });
+} else {
+  ensureBookmarksStarredColumn().catch((err) => {
+    console.warn("[DB Client] Starred column migration check:", err.message);
+  });
+}
+
+export async function ensureBookmarksStarredColumn(): Promise<void> {
+  try {
+    const info = await client.execute("PRAGMA table_info(bookmarks);");
+    if (info.rows.length === 0) return;
+
+    const hasIsStarred = info.rows.some((row) => row.name === "is_starred");
+    if (!hasIsStarred) {
+      await client.execute(
+        "ALTER TABLE bookmarks ADD COLUMN is_starred INTEGER NOT NULL DEFAULT 0;"
+      );
+      await client.execute(
+        "UPDATE bookmarks SET is_starred = 0 WHERE is_starred IS NULL;"
+      );
+    }
+  } catch (err: any) {
+    if (!err?.message?.includes("duplicate column name")) {
+      console.warn("[DB Client] Could not ensure is_starred column:", err?.message ?? err);
+    }
+  }
 }

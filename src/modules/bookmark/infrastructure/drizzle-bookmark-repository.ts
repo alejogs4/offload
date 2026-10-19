@@ -25,6 +25,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepositoryPort {
       category: validated.category,
       subcategory: validated.subcategory,
       status: validated.status,
+      isStarred: validated.isStarred,
       createdAt: validated.createdAt,
       updatedAt: validated.updatedAt,
     });
@@ -41,6 +42,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepositoryPort {
         category: validated.category,
         subcategory: validated.subcategory,
         status: validated.status,
+        isStarred: validated.isStarred,
         updatedAt: validated.updatedAt,
       })
       .where(eq(bookmarksTable.id, validated.id));
@@ -64,6 +66,24 @@ export class DrizzleBookmarkRepository implements BookmarkRepositoryPort {
     return this.decodeRow(rows[0]);
   }
 
+  async toggleStarred(id: string, userId: string, isStarred: boolean): Promise<BookmarkState> {
+    const now = new Date();
+    const rows = await db
+      .update(bookmarksTable)
+      .set({
+        isStarred,
+        updatedAt: now,
+      })
+      .where(and(eq(bookmarksTable.id, id), eq(bookmarksTable.userId, userId)))
+      .returning();
+
+    if (rows.length === 0) {
+      throw new NotFoundError(`Bookmark not found or unauthorized: ${id}`);
+    }
+
+    return this.decodeRow(rows[0]);
+  }
+
   async findAllByUserId(userId: string): Promise<BookmarkState[]> {
     const rows = await db.select().from(bookmarksTable).where(eq(bookmarksTable.userId, userId));
     return rows.map((row) => this.decodeRow(row));
@@ -73,6 +93,7 @@ export class DrizzleBookmarkRepository implements BookmarkRepositoryPort {
     return BookmarkStateSchema.parse({
       ...row,
       ogImage: row.ogImage || undefined,
+      isStarred: Boolean(row.isStarred),
     });
   }
 }

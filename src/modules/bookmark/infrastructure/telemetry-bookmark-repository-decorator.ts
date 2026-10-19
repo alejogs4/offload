@@ -27,6 +27,10 @@ export class TelemetryBookmarkRepositoryDecorator implements BookmarkRepositoryP
     return this.timed("markAsVisited", () => this.inner.markAsVisited(id, userId));
   }
 
+  toggleStarred(id: string, userId: string, isStarred: boolean): Promise<BookmarkState> {
+    return this.timed("toggleStarred", () => this.inner.toggleStarred(id, userId, isStarred));
+  }
+
   findAllByUserId(userId: string): Promise<BookmarkState[]> {
     return this.timed("findAllByUserId", () => this.inner.findAllByUserId(userId));
   }

@@ -44,6 +44,11 @@
   --status-danger-border: rgba(185, 28, 28, 0.18);
   --status-danger-text: #991b1b;
 
+  --status-starred: #d97706;
+  --status-starred-hover: #b45309;
+  --status-starred-bg: rgba(217, 119, 6, 0.10);
+  --status-starred-border: rgba(217, 119, 6, 0.28);
+
   /* Geometry & Radii */
   --radius-xs: 3px;
   --radius-sm: 5px;
@@ -671,8 +676,17 @@ button, input, select {
   border-color: var(--border-default);
 }
 
-/* Custom Checkbox Action */
-.checkbox-action-wrapper {
+/* Custom Checkbox & Star Actions */
+.item-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  padding-top: 0.125rem;
+}
+
+.checkbox-action-wrapper,
+.star-action-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -697,7 +711,8 @@ button, input, select {
 }
 
 /* WCAG 2.1 AA 44x44px minimum touch target */
-.custom-checkbox-btn::after {
+.custom-checkbox-btn::after,
+.star-action-btn::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -729,6 +744,52 @@ button, input, select {
   border-color: var(--ink-primary);
   color: #ffffff;
   cursor: default;
+}
+
+.star-action-btn {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-tertiary);
+  transition: all var(--transition-fast);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.star-action-btn:hover {
+  color: var(--status-starred);
+  background: var(--bg-surface-hover);
+  border-color: var(--border-subtle);
+}
+
+.star-action-btn:active {
+  transform: scale(0.92);
+}
+
+.star-action-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.star-action-btn.starred {
+  color: var(--status-starred);
+}
+
+.star-action-btn.starred:hover {
+  color: var(--status-starred-hover);
+  background: var(--status-starred-bg);
+  border-color: var(--status-starred-border);
+}
+
+.starred-category-icon {
+  color: var(--status-starred);
 }
 
 /* Item Media & Visuals */

@@ -5,6 +5,8 @@ import {
   DefaultTaxonomy,
 } from "~/modules/bookmark/domain/bookmark-schema";
 
+export const STARRED_CATEGORY_NAME = "Starred";
+
 export interface BookmarkItemDTO {
   id: string;
   url: string;
@@ -14,6 +16,7 @@ export interface BookmarkItemDTO {
   category: string;
   subcategory: string;
   status: BookmarkStatus;
+  isStarred: boolean;
   createdAt: string;
 }
 
@@ -24,6 +27,7 @@ export interface SubcategoryGroupDTO {
 
 export interface CategoryGroupDTO {
   name: string;
+  isFlat?: boolean;
   subcategories: SubcategoryGroupDTO[];
 }
 
@@ -47,11 +51,16 @@ export class GetFolderTreeQueryHandler {
       .filter((b) => b.status === BookmarkStatus.VISITED)
       .map((b) => this.toDTO(b));
 
-    // Group pending bookmarks by Category > Subcategory
+    const starredPending: BookmarkItemDTO[] = [];
     const categoryMap = new Map<string, Map<string, BookmarkItemDTO[]>>();
 
     for (const item of pending) {
       const dto = this.toDTO(item);
+      if (dto.isStarred) {
+        starredPending.push(dto);
+        continue;
+      }
+
       const cat = dto.category || DefaultTaxonomy.CATEGORY;
       const sub = dto.subcategory || DefaultTaxonomy.SUBCATEGORY;
 
@@ -74,6 +83,19 @@ export class GetFolderTreeQueryHandler {
       })),
     }));
 
+    if (starredPending.length > 0) {
+      pendingFolders.unshift({
+        name: STARRED_CATEGORY_NAME,
+        isFlat: true,
+        subcategories: [
+          {
+            name: "",
+            bookmarks: starredPending,
+          },
+        ],
+      });
+    }
+
     return {
       pendingFolders,
       visitedBookmarks: visited,
@@ -91,6 +113,7 @@ export class GetFolderTreeQueryHandler {
       category: b.category,
       subcategory: b.subcategory,
       status: b.status,
+      isStarred: Boolean(b.isStarred),
       createdAt: b.createdAt.toISOString(),
     };
   }

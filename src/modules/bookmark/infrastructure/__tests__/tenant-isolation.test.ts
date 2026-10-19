@@ -33,10 +33,12 @@ describe("Multi-Tenant Data Isolation", () => {
         category TEXT NOT NULL DEFAULT 'General',
         subcategory TEXT NOT NULL DEFAULT 'Reading',
         status TEXT NOT NULL DEFAULT 'PENDING',
+        is_starred INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
     `);
+    await client.execute("ALTER TABLE bookmarks ADD COLUMN is_starred INTEGER NOT NULL DEFAULT 0;").catch(() => {});
 
     // Clean up test data
     await client.execute({
@@ -79,6 +81,7 @@ describe("Multi-Tenant Data Isolation", () => {
       category: "Work",
       subcategory: "Confidential",
       status: BookmarkStatus.PENDING,
+      isStarred: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -93,6 +96,7 @@ describe("Multi-Tenant Data Isolation", () => {
       category: "Personal",
       subcategory: "Finance",
       status: BookmarkStatus.PENDING,
+      isStarred: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -124,6 +128,7 @@ describe("Multi-Tenant Data Isolation", () => {
       category: "Work",
       subcategory: "Tasks",
       status: BookmarkStatus.PENDING,
+      isStarred: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

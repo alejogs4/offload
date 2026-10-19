@@ -53,6 +53,7 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
       category: props.category ?? DefaultTaxonomy.CATEGORY,
       subcategory: props.subcategory ?? DefaultTaxonomy.SUBCATEGORY,
       status: BookmarkStatus.PENDING,
+      isStarred: false,
       createdAt: now,
       updatedAt: now,
     });
@@ -91,6 +92,7 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
       category: DefaultTaxonomy.CATEGORY,
       subcategory: DefaultTaxonomy.SUBCATEGORY,
       status: BookmarkStatus.PROCESSING,
+      isStarred: false,
       createdAt: now,
       updatedAt: now,
     });
@@ -166,6 +168,34 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
   }
 
   /**
+   * Enforces starring invariants: user authorization.
+   */
+  public toggleStarred(
+    state: BookmarkState,
+    userId: string,
+    isStarred?: boolean,
+    now: Date = new Date()
+  ): { event: BookmarkEvent; evolved: BookmarkState } {
+    if (state.userId !== userId) {
+      throw new UnauthorizedError("Unauthorized: Cannot modify bookmark belonging to another user");
+    }
+
+    const nextStarred = isStarred !== undefined ? isStarred : !state.isStarred;
+
+    const event: BookmarkEvent = {
+      type: "BookmarkStarredToggled",
+      payload: {
+        id: state.id,
+        userId,
+        isStarred: nextStarred,
+        updatedAt: now,
+      },
+    };
+
+    return { event, evolved: this.evolve(state, event) };
+  }
+
+  /**
    * Enforces categorization invariants.
    */
   public categorize(
@@ -218,6 +248,17 @@ export class Bookmark extends BaseEntity<BookmarkState, BookmarkEvent> {
           ...state,
           status: BookmarkStatus.VISITED,
           updatedAt: event.payload.visitedAt,
+        };
+      }
+
+      case "BookmarkStarredToggled": {
+        if (!state) {
+          throw new InvariantViolationError("Cannot evolve non-existent bookmark state");
+        }
+        return {
+          ...state,
+          isStarred: event.payload.isStarred,
+          updatedAt: event.payload.updatedAt,
         };
       }
 

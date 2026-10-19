@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { loader, action } from "../dashboard";
 import { auth } from "~/shared/infrastructure/auth/auth.server";
-import { getFolderTreeQuery, markBookmarkVisitedHandler, createBookmarkHandler } from "~/shared/infrastructure/container";
+import {
+  getFolderTreeQuery,
+  markBookmarkVisitedHandler,
+  toggleBookmarkStarredHandler,
+  createBookmarkHandler,
+} from "~/shared/infrastructure/container";
 import { InvariantViolationError } from "~/shared/domain/errors";
 
 function extractServerTimingHeader(res: any): string | undefined {
@@ -264,6 +269,41 @@ describe("Dashboard Route - Server-Timing & Handlers", () => {
 
     const data = extractPayload(response);
     expect(data).toEqual({ error: "A valid URL is required" });
+  });
+
+  it("should execute toggle_starred action scoped to authenticated session user.id", async () => {
+    vi.spyOn(auth.api, "getSession").mockResolvedValue({
+      user: mockUser,
+      session: mockSession,
+    } as any);
+    vi.spyOn(toggleBookmarkStarredHandler, "execute").mockResolvedValue(undefined);
+
+    const formData = new FormData();
+    formData.set("intent", "toggle_starred");
+    formData.set("bookmarkId", "123e4567-e89b-12d3-a456-426614174000");
+    formData.set("isStarred", "true");
+
+    const request = new Request("http://localhost:3000/", {
+      method: "POST",
+      headers: {
+        Cookie: "better-auth.session_token=valid-session-token",
+      },
+      body: formData,
+    });
+
+    const response = await action({
+      request,
+      params: {},
+      context: {} as any,
+    } as any);
+
+    const data = extractPayload(response);
+    expect(data).toEqual({ success: true });
+    expect(toggleBookmarkStarredHandler.execute).toHaveBeenCalledWith({
+      userId: mockUser.id,
+      bookmarkId: "123e4567-e89b-12d3-a456-426614174000",
+      isStarred: true,
+    });
   });
 });
 

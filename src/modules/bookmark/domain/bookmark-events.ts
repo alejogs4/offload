@@ -11,7 +11,8 @@ export type BookmarkEvent =
   | { type: "BookmarkProcessingCompleted"; payload: BookmarkState }
   | { type: "BookmarkProcessingFailed"; payload: BookmarkState }
   | { type: "BookmarkCategorized"; payload: { id: string; category: string; subcategory: string; updatedAt: Date } }
-  | { type: "BookmarkVisited"; payload: { id: string; userId: string; visitedAt: Date } };
+  | { type: "BookmarkVisited"; payload: { id: string; userId: string; visitedAt: Date } }
+  | { type: "BookmarkStarredToggled"; payload: { id: string; userId: string; isStarred: boolean; updatedAt: Date } };
 
 // Event Bus payload representations
 export interface BookmarkCreatedPayload {
@@ -66,6 +67,25 @@ export class BookmarkVisitedEvent implements DomainEvent<BookmarkVisitedPayload>
   readonly payload: BookmarkVisitedPayload;
 
   constructor(payload: BookmarkVisitedPayload) {
+    this.eventId = crypto.randomUUID();
+    this.occurredAt = new Date();
+    this.payload = payload;
+  }
+}
+
+export interface BookmarkStarredToggledPayload {
+  bookmarkId: string;
+  userId: string;
+  isStarred: boolean;
+}
+
+export class BookmarkStarredToggledEvent implements DomainEvent<BookmarkStarredToggledPayload> {
+  readonly eventId: string;
+  readonly eventName = "BookmarkStarredToggledEvent";
+  readonly occurredAt: Date;
+  readonly payload: BookmarkStarredToggledPayload;
+
+  constructor(payload: BookmarkStarredToggledPayload) {
     this.eventId = crypto.randomUUID();
     this.occurredAt = new Date();
     this.payload = payload;

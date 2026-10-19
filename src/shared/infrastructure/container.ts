@@ -3,6 +3,7 @@ import { TelemetryBookmarkRepositoryDecorator } from "~/modules/bookmark/infrast
 import { MetadataScraperFactory } from "~/modules/bookmark/infrastructure/scraper/metadata-scraper-factory";
 import { CreateBookmarkCommandHandler } from "~/modules/bookmark/application/create-bookmark-command";
 import { MarkBookmarkVisitedCommandHandler } from "~/modules/bookmark/application/mark-bookmark-visited-command";
+import { ToggleBookmarkStarredCommandHandler } from "~/modules/bookmark/application/toggle-bookmark-starred-command";
 import { VercelAiCategorizerAdapter } from "~/modules/categorization/infrastructure/vercel-ai-categorizer-adapter";
 import { CategorizeBookmarkHandler } from "~/modules/categorization/application/categorize-bookmark-handler";
 import { GetFolderTreeQueryHandler } from "~/modules/categorization/application/get-folder-tree-query";
@@ -40,6 +41,11 @@ export const createBookmarkHandler = new CreateBookmarkCommandHandler(
 );
 
 export const markBookmarkVisitedHandler = new MarkBookmarkVisitedCommandHandler(
+  bookmarkRepository,
+  eventBus
+);
+
+export const toggleBookmarkStarredHandler = new ToggleBookmarkStarredCommandHandler(
   bookmarkRepository,
   eventBus
 );

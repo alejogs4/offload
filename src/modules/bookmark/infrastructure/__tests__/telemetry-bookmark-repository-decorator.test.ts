@@ -14,6 +14,7 @@ const mockBookmark: BookmarkState = {
   category: "General",
   subcategory: "Reading",
   status: BookmarkStatus.PENDING,
+  isStarred: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -26,6 +27,10 @@ describe("TelemetryBookmarkRepositoryDecorator", () => {
     markAsVisited: vi.fn().mockResolvedValue({
       ...mockBookmark,
       status: BookmarkStatus.VISITED,
+    }),
+    toggleStarred: vi.fn().mockResolvedValue({
+      ...mockBookmark,
+      isStarred: true,
     }),
     findAllByUserId: vi.fn().mockResolvedValue([mockBookmark]),
   });

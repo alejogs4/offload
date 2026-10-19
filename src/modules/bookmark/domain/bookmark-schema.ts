@@ -45,6 +45,7 @@ export const BookmarkStateSchema = z.object({
   category: CategorySchema,
   subcategory: SubcategorySchema,
   status: BookmarkStatusSchema,
+  isStarred: z.boolean().default(false),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

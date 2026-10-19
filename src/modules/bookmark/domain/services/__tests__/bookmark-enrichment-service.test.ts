@@ -13,6 +13,7 @@ describe("BookmarkEnrichmentService", () => {
     category: DefaultTaxonomy.CATEGORY,
     subcategory: DefaultTaxonomy.SUBCATEGORY,
     status: BookmarkStatus.PROCESSING,
+    isStarred: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -24,6 +25,7 @@ describe("BookmarkEnrichmentService", () => {
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
       markAsVisited: vi.fn(),
+      toggleStarred: vi.fn(),
     };
 
     const mockScraper = {
@@ -77,6 +79,7 @@ describe("BookmarkEnrichmentService", () => {
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
       markAsVisited: vi.fn(),
+      toggleStarred: vi.fn(),
     };
 
     const mockScraper = {
@@ -117,6 +120,7 @@ describe("BookmarkEnrichmentService", () => {
       update: vi.fn().mockResolvedValue(undefined),
       findAllByUserId: vi.fn(),
       markAsVisited: vi.fn(),
+      toggleStarred: vi.fn(),
     };
 
     const mockScraper = {

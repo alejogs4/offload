@@ -13,6 +13,7 @@ describe("Bookmark Application Command Handlers", () => {
         update: vi.fn(),
         findAllByUserId: vi.fn(),
         markAsVisited: vi.fn(),
+        toggleStarred: vi.fn(),
       };
 
       const mockEnrichmentService = {
@@ -57,6 +58,7 @@ describe("Bookmark Application Command Handlers", () => {
         category: "General",
         subcategory: "Misc",
         status: BookmarkStatus.PENDING,
+        isStarred: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -69,6 +71,7 @@ describe("Bookmark Application Command Handlers", () => {
           ...existingBookmark,
           status: BookmarkStatus.VISITED,
         }),
+        toggleStarred: vi.fn(),
         findAllByUserId: vi.fn(),
       };
 
